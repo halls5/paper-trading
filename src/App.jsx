@@ -31,6 +31,9 @@ const AssetRow = memo(function AssetRow({ data, liveData, setChartAsset, setTrad
     : data;
   const isPos = (displayData.changePercent || 0) >= 0;
 
+  const openBuy = () => { setTradingAsset(displayData); setTradeType('BUY'); setQty(''); setTradeErr(''); };
+  const openSell = () => { setTradingAsset(displayData); setTradeType('SELL'); setQty(''); setTradeErr(''); };
+
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', padding: '0.7rem 1rem', background: 'var(--row-bg)', borderRadius: '10px', marginBottom: '0.4rem' }}>
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -38,7 +41,7 @@ const AssetRow = memo(function AssetRow({ data, liveData, setChartAsset, setTrad
         <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{displayData.symbol}</div>
       </div>
 
-      {/* Mini sparkline ? only refetches when symbol changes, not on liveData ticks */}
+      {/* Mini sparkline */}
       <div style={{ cursor: 'pointer', flexShrink: 0 }} onClick={() => setChartAsset(displayData)}>
         <MiniChart symbol={displayData.symbol} type={displayData.type} currency={displayData.currency} />
       </div>
@@ -54,11 +57,14 @@ const AssetRow = memo(function AssetRow({ data, liveData, setChartAsset, setTrad
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
-        <button className="btn" style={{ padding: '5px 9px', background: 'rgba(59,130,246,0.15)', color: '#60a5fa', fontSize: '0.8rem' }} onClick={() => setChartAsset(displayData)}>차트</button>
-        <button className="btn btn-primary" style={{ padding: '5px 12px', fontSize: '0.82rem' }}
-          onClick={() => { setTradingAsset(displayData); setTradeType('BUY'); setQty(''); setTradeErr(''); }}
+      <div style={{ display: 'flex', gap: '0.3rem', flexShrink: 0 }}>
+        <button className="btn" style={{ padding: '5px 8px', background: 'rgba(59,130,246,0.15)', color: '#60a5fa', fontSize: '0.78rem' }} onClick={() => setChartAsset(displayData)}>차트</button>
+        <button className="btn btn-success" style={{ padding: '5px 10px', fontSize: '0.78rem' }}
+          onClick={openBuy}
           disabled={!displayData.price}>매수</button>
+        <button className="btn btn-danger" style={{ padding: '5px 10px', fontSize: '0.78rem' }}
+          onClick={openSell}
+          disabled={!displayData.price}>매도</button>
       </div>
     </div>
   );
@@ -91,10 +97,16 @@ export default function App() {
   }, [theme]);
 
 
-  const getTier = (balance) => {
-    if (balance >= 500000000) return '🐳 고래 (Whale)';
-    if (balance >= 200000000) return '⚔️ 프로 (Pro)';
-    return '🌱 초보 (Novice)';
+  // 티어 기준: 초기 1억 기준
+  // 🌱 초보: 1억 미만 (손실 중)
+  // ✨ 성장: 1억 ~ 1.5억
+  // 💎 고수: 1.5억 ~ 3억
+  // 🐳 고래: 3억 이상
+  const getTierIcon = (balance) => {
+    if (balance >= 300000000) return '🐳';
+    if (balance >= 150000000) return '💎';
+    if (balance >= 100000000) return '✨';
+    return '🌱';
   };
 
   /* ── Market ── */
@@ -177,6 +189,26 @@ export default function App() {
     try {
       const res = await fetch('/api/portfolio/history', { headers: { Authorization: `Bearer ${tk}` } });
       if (res.ok) setPortfolioHistory(await res.json());
+    } catch (_) {}
+  };
+
+  // 1시간단위로 자산 스냅샷 저장
+  const saveBalanceSnapshot = async (tk, totalKRW) => {
+    const lastSavedKey = 'lastBalanceSnapshot';
+    const lastSaved = parseInt(localStorage.getItem(lastSavedKey) || '0', 10);
+    const now = Date.now();
+    // 1시간(3600측)  미만이면 저장 안함
+    if (now - lastSaved < 60 * 60 * 1000) return;
+    try {
+      const res = await fetch('/api/portfolio/history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tk}` },
+        body: JSON.stringify({ total_asset_krw: totalKRW })
+      });
+      if (res.ok) {
+        localStorage.setItem(lastSavedKey, String(now));
+        await fetchPortfolioHistory(tk);
+      }
     } catch (_) {}
   };
 
@@ -288,10 +320,21 @@ export default function App() {
     return { ...p, currentPrice, currency, valueKRW, costKRW, pnlKRW, pnlPct };
   });
 
+  // 총 손익 = 현재 총 자산 - 초기 시드 1억 (수수료는 이미 거래 시 차감되어 balance에 반영됨)
+  // pnlPct 계산도 순수 시드 기준
   const totalHoldingKRW = portfolioWithValues.reduce((s, p) => s + p.valueKRW, 0);
   const totalAssetKRW = (user?.balance || 0) + totalHoldingKRW;
-  const totalPnl = totalAssetKRW - 100_000_000;
-  const totalPnlPct = (totalPnl / 100_000_000 * 100).toFixed(2);
+  const INITIAL_SEED = 100_000_000;
+  const totalPnl = totalAssetKRW - INITIAL_SEED;
+  const totalPnlPct = (totalPnl / INITIAL_SEED * 100).toFixed(2);
+
+  // 포트폴리오 탭 진입 시 자동 스냅샷 (1시간 주기)
+  useEffect(() => {
+    if (activeTab === 'PORTFOLIO' && user && totalAssetKRW > 0) {
+      saveBalanceSnapshot(token(), totalAssetKRW);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   const pieData = [
     ...(user?.balance > 0 ? [{ label: '현금', value: user.balance, color: '#6b7280' }] : []),
@@ -569,8 +612,9 @@ export default function App() {
           
           <div style={{ textAlign: 'right', marginLeft: '0.5rem' }}>
             <div style={{ fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'flex-end' }}>
-              <span style={{ fontSize: '0.7rem', padding: '2px 6px', background: 'var(--btn-bg)', borderRadius: '4px' }}>
-                {getTier(totalAssetKRW)}
+              <span title={`티어: ${totalAssetKRW >= 300000000 ? '고래' : totalAssetKRW >= 150000000 ? '고수' : totalAssetKRW >= 100000000 ? '성장' : '초보'}`}
+                style={{ fontSize: '1rem', cursor: 'default' }}>
+                {getTierIcon(totalAssetKRW)}
               </span>
               {user.nickname}
             </div>
@@ -706,11 +750,23 @@ export default function App() {
           {activeTab === 'PORTFOLIO' && (
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', alignItems: 'center' }}>
-                <h3 style={{ margin: 0 }}>📈 포트폴리오 자산 추이</h3>
+                <h3 style={{ margin: 0 }}><TrendingUp size={18} style={{ marginRight: 6, verticalAlign: "text-bottom" }} /> 나의 자산 추이</h3>
+                <button className="btn" style={{ background: 'var(--btn-bg)', color: 'var(--text-primary)', fontSize: '0.78rem', padding: '4px 10px' }}
+                  onClick={() => saveBalanceSnapshot(token(), totalAssetKRW)}>고지점 추가</button>
               </div>
               <div style={{ background: 'var(--row-bg)', padding: '1rem', borderRadius: '12px' }}>
-                {portfolioHistory.length < 2 ? (
-                  <p style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '2rem' }}>데이터가 충분하지 않습니다 (2회 이상 기록 필요).</p>
+                {portfolioHistory.length < 1 ? (
+                  <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '3rem 1rem' }}>
+                    <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📈</div>
+                    <div>아직 기록이 없습니다.</div>
+                    <div style={{ fontSize: '0.8rem', marginTop: '0.4rem' }}>'고지점 추가' 버튼을 누르거나, 탭을 열 때마다 1시간 주기로 자동 기록됩니다.</div>
+                  </div>
+                ) : portfolioHistory.length < 2 ? (
+                  <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '2rem' }}>
+                    <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⏳</div>
+                    <div>기록 1개. 선 그래프는 기록이 2개 이상이어야 그려집니다.</div>
+                    <div style={{ fontSize: '0.8rem', marginTop: '0.4rem' }}>'고지점 추가'를 다시 눠르거나, 1시간 후 다시 탭을 열어보세요.</div>
+                  </div>
                 ) : (
                   <PortfolioHistoryChart data={portfolioHistory} />
                 )}

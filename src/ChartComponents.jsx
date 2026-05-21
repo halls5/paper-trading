@@ -225,29 +225,44 @@ export function PortfolioHistoryChart({ data }) {
 
   useEffect(() => {
     if (!data || data.length === 0) return;
-    if (chartContainerRef.current) {
-      chartContainerRef.current.innerHTML = '';
-      const chart = createChart(chartContainerRef.current, {
-        width: chartContainerRef.current.clientWidth, height: 250,
-        layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#9ca3af' },
-        grid: { vertLines: { color: 'rgba(255, 255, 255, 0.05)' }, horzLines: { color: 'rgba(255, 255, 255, 0.05)' } },
-        timeScale: { timeVisible: true, secondsVisible: false, borderColor: 'rgba(255,255,255,0.1)' },
-        rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)' }
-      });
-      
-      const lineSeries = chart.addSeries(AreaSeries, {
-        lineColor: '#3b82f6',
-        topColor: 'rgba(59, 130, 246, 0.4)',
-        bottomColor: 'rgba(59, 130, 246, 0)',
-        lineWidth: 2,
-      });
-      
-      lineSeries.setData(data);
-      chart.timeScale().fitContent();
+    if (!chartContainerRef.current) return;
 
-      return () => chart.remove();
-    }
+    chartContainerRef.current.innerHTML = '';
+    const chart = createChart(chartContainerRef.current, {
+      width: chartContainerRef.current.clientWidth,
+      height: 280,
+      layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#9ca3af' },
+      grid: { vertLines: { color: 'rgba(255, 255, 255, 0.05)' }, horzLines: { color: 'rgba(255, 255, 255, 0.05)' } },
+      timeScale: { timeVisible: true, secondsVisible: false, borderColor: 'rgba(255,255,255,0.1)' },
+      rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)' },
+      handleScroll: true,
+      handleScale: true,
+    });
+
+    const lineSeries = chart.addSeries(AreaSeries, {
+      lineColor: '#3b82f6',
+      topColor: 'rgba(59, 130, 246, 0.35)',
+      bottomColor: 'rgba(59, 130, 246, 0)',
+      lineWidth: 2,
+    });
+
+    lineSeries.setData(data);
+    chart.timeScale().fitContent();
+
+    // 컨테이너 리사이즈 대응
+    const ro = new ResizeObserver(entries => {
+      if (entries[0]) {
+        chart.applyOptions({ width: entries[0].contentRect.width });
+        chart.timeScale().fitContent();
+      }
+    });
+    ro.observe(chartContainerRef.current);
+
+    return () => {
+      ro.disconnect();
+      chart.remove();
+    };
   }, [data]);
 
-  return <div ref={chartContainerRef} style={{ width: '100%', height: 250 }} />;
+  return <div ref={chartContainerRef} style={{ width: '100%', height: 280 }} />;
 }
