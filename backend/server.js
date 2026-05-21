@@ -113,13 +113,21 @@ app.get('/api/users/me', authenticateToken, (req, res) => {
 
 // Korean → English search term translation (Yahoo Finance doesn't support Korean)
 const KR_TRANSLATE = {
-  '삼성': 'samsung', '삼성전자': '005930.KS', '하이닉스': '000660.KS', 'sk하이닉스': '000660.KS',
+  '삼성': '005930.KS', '삼성전자': '005930.KS', '하이닉스': '000660.KS', 'sk하이닉스': '000660.KS',
   '네이버': '035420.KS', '카카오': '035720.KS', '셀트리온': '068270.KS',
   '애플': 'apple', '엔비디아': 'nvidia', '테슬라': 'tesla', '마이크로소프트': 'microsoft',
   '아마존': 'amazon', '구글': 'google', '알파벳': 'alphabet', '메타': 'meta',
   '비트코인': 'BTCUSDT', '이더리움': 'ETHUSDT', '도지': 'DOGEUSDT', '리플': 'XRPUSDT',
   '솔라나': 'SOLUSDT', '에이다': 'ADAUSDT', '아발란체': 'AVAXUSDT',
   '매틱': 'POLUSDT', '폴리곤': 'POLUSDT', 'matic': 'POLUSDT', 'MATIC': 'POLUSDT'
+};
+
+const KR_NAMES = {
+  '005930.KS': '삼성전자',
+  '000660.KS': 'SK하이닉스',
+  '035420.KS': 'NAVER',
+  '035720.KS': '카카오',
+  '068270.KS': '셀트리온'
 };
 
 // Search — with 5-min cache
@@ -153,7 +161,7 @@ app.get('/api/search', async (req, res) => {
       if (naverData) {
         const result = [{
           symbol: q,
-          name: naverData.nm,
+          name: KR_NAMES[q] || q,
           price: naverData.nv,
           changePercent: naverData.cr * (naverData.cv === 0 ? 0 : (naverData.nv >= naverData.pcv ? 1 : -1)),
           type: 'STOCK',
@@ -202,27 +210,31 @@ app.get('/api/search', async (req, res) => {
 
     if (finalResults.length === 0) {
       // Fallback to Yahoo if Finnhub failed or not configured
-      const results = await enqueue(async () => {
-        const searchResults = await yf.search(q);
-        const validQuotes = (searchResults.quotes || [])
-          .filter(quote => ['EQUITY', 'CRYPTOCURRENCY', 'ETF'].includes(quote.quoteType))
-          .slice(0, 8);
-        if (validQuotes.length === 0) return [];
+      try {
+        const results = await enqueue(async () => {
+          const searchResults = await yf.search(q);
+          const validQuotes = (searchResults.quotes || [])
+            .filter(quote => ['EQUITY', 'CRYPTOCURRENCY', 'ETF'].includes(quote.quoteType))
+            .slice(0, 8);
+          if (validQuotes.length === 0) return [];
 
-        const symbols = validQuotes.map(q => q.symbol);
-        const quotes = await yf.quote(symbols);
-        const quotesArray = Array.isArray(quotes) ? quotes : [quotes];
+          const symbols = validQuotes.map(q => q.symbol);
+          const quotes = await yf.quote(symbols);
+          const quotesArray = Array.isArray(quotes) ? quotes : [quotes];
 
-        return quotesArray.map(quote => ({
-          symbol: quote.quoteType === 'CRYPTOCURRENCY' ? quote.symbol.replace('-USD', 'USDT').replace('MATICUSDT', 'POLUSDT') : quote.symbol,
-          name: quote.shortName || quote.longName || quote.symbol,
-          price: quote.regularMarketPrice,
-          changePercent: quote.regularMarketChangePercent,
-          type: quote.quoteType === 'CRYPTOCURRENCY' ? 'CRYPTO' : 'STOCK',
-          currency: quote.currency || 'USD'
-        })).filter(r => r.price != null);
-      });
-      finalResults = results;
+          return quotesArray.map(quote => ({
+            symbol: quote.quoteType === 'CRYPTOCURRENCY' ? quote.symbol.replace('-USD', 'USDT').replace('MATICUSDT', 'POLUSDT') : quote.symbol,
+            name: quote.shortName || quote.longName || quote.symbol,
+            price: quote.regularMarketPrice,
+            changePercent: quote.regularMarketChangePercent,
+            type: quote.quoteType === 'CRYPTOCURRENCY' ? 'CRYPTO' : 'STOCK',
+            currency: quote.currency || 'USD'
+          })).filter(r => r.price != null);
+        });
+        finalResults = results;
+      } catch (err) {
+        console.error('Yahoo fallback search failed:', err.message);
+      }
     }
 
     setCache(cacheKey, finalResults, 5 * 60 * 1000); // 5 min
