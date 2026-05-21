@@ -10,7 +10,7 @@ export function MiniChart({ symbol, type, currency }) {
       try {
         let chartData = [];
         if (type === 'CRYPTO' || symbol.endsWith('USDT')) {
-          const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1d&limit=30`);
+          const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=15m&limit=130`);
           const json = await res.json();
           if (res.ok) {
             chartData = json.map(k => ({ time: Math.floor(k[0]/1000), value: parseFloat(k[4]) }));
@@ -20,7 +20,7 @@ export function MiniChart({ symbol, type, currency }) {
           const json = await res.json();
           if (res.ok && Array.isArray(json)) {
             const now = Math.floor(Date.now() / 1000);
-            chartData = json.map((val, i) => ({ time: now - (json.length - i) * 86400, value: val }));
+            chartData = json.map((val, i) => ({ time: now - (json.length - i) * 900, value: val }));
           }
         }
         if (chartData.length > 0) {

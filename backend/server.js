@@ -296,8 +296,8 @@ app.get('/api/sparkline/:symbol', async (req, res) => {
 
   try {
     const prices = await enqueue(async () => {
-      const period1 = rangeToPeriod1('1mo');
-      const result = await yf.chart(symbol, { period1, period2: new Date(), interval: '1d' });
+      const period1 = rangeToPeriod1('1wk');
+      const result = await yf.chart(symbol, { period1, period2: new Date(), interval: '15m' });
       return (result.quotes || [])
         .filter(q => q.close != null)
         .map(q => q.close);
