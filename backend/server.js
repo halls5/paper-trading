@@ -18,6 +18,17 @@ const yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_key_for_paper_trading';
+const fs = require('fs');
+
+// Load KRX stock list
+let krxStocks = [];
+try {
+  const krxData = fs.readFileSync(path.join(__dirname, 'krx.json'), 'utf-8');
+  krxStocks = JSON.parse(krxData);
+  console.log(`Loaded ${krxStocks.length} KRX stocks for search fallback.`);
+} catch (e) {
+  console.warn('Failed to load krx.json for search fallback.');
+}
 
 // ─── In-Memory Cache ──────────────────────────────────────────────────────────
 const cache = new Map(); // key → { data, expiry }
@@ -172,6 +183,45 @@ app.get('/api/search', async (req, res) => {
       }
     } catch (err) {
       console.error('Naver KS direct search error:', err.message);
+    }
+  }
+
+  // Fallback for Korean searches: search the loaded krx.json
+  const isKorean = /[가-힣]/.test(q);
+  if (isKorean && krxStocks.length > 0) {
+    try {
+      // Find up to 5 matching stocks
+      const matches = krxStocks.filter(s => s.name.includes(q)).slice(0, 5);
+      if (matches.length > 0) {
+        const codes = matches.map(s => s.symbol.split('.')[0]).join(',');
+        const naverUrl = `https://polling.finance.naver.com/api/realtime?query=SERVICE_ITEM:${codes}`;
+        const naverRes = await fetch(naverUrl);
+        const naverJson = await naverRes.json();
+        const naverDatas = naverJson.result.areas[0].datas;
+
+        const results = matches.map(s => {
+          const code = s.symbol.split('.')[0];
+          const data = naverDatas.find(d => d.cd === code);
+          if (data) {
+            return {
+              symbol: s.symbol,
+              name: s.name,
+              price: data.nv,
+              changePercent: data.cr * (data.cv === 0 ? 0 : (data.nv >= data.pcv ? 1 : -1)),
+              type: 'STOCK',
+              currency: 'KRW'
+            };
+          }
+          return null;
+        }).filter(Boolean);
+
+        if (results.length > 0) {
+          setCache(cacheKey, results, 5 * 60 * 1000);
+          return res.json(results);
+        }
+      }
+    } catch (err) {
+      console.error('KRX JSON search error:', err.message);
     }
   }
 
@@ -590,8 +640,9 @@ app.post('/api/trade', authenticateToken, async (req, res) => {
   const totalAmountAssetCurrency = quantity * price;
   const totalAmountKRW = isKRW ? totalAmountAssetCurrency : totalAmountAssetCurrency * USD_TO_KRW;
 
-  const feeRate = asset_type === 'CRYPTO' ? 0.0005 : (isKRW ? 0.00015 : 0.001);
-  const feeKRW = totalAmountKRW * feeRate;
+  // 사용자 요청에 의해 수수료 0% 적용 (수수료 포함 X)
+  const feeRate = 0;
+  const feeKRW = 0;
 
   if (!['BUY', 'SELL'].includes(type))
     return res.status(400).json({ error: '잘못된 거래 유형입니다.' });
