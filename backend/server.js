@@ -168,29 +168,65 @@ app.get('/api/search', async (req, res) => {
   }
 
   try {
-    const results = await enqueue(async () => {
-      const searchResults = await yf.search(q);
-      const validQuotes = (searchResults.quotes || [])
-        .filter(quote => ['EQUITY', 'CRYPTOCURRENCY', 'ETF'].includes(quote.quoteType))
-        .slice(0, 8);
-      if (validQuotes.length === 0) return [];
+    let finalResults = [];
+    if (process.env.FINNHUB_TOKEN) {
+      try {
+        const fUrl = `https://finnhub.io/api/v1/search?q=${encodeURIComponent(q)}&token=${process.env.FINNHUB_TOKEN}`;
+        const searchRes = await fetch(fUrl).then(r => r.json());
+        const symbols = (searchRes.result || []).filter(r => r.type === 'Common Stock' || r.type === '').slice(0, 5).map(r => r.symbol);
+        
+        const fetchQuote = async (sym) => {
+          const resp = await fetch(`https://finnhub.io/api/v1/quote?symbol=${sym}&token=${process.env.FINNHUB_TOKEN}`);
+          return await resp.json();
+        };
+        
+        const quotes = await Promise.all(symbols.map(async (s) => {
+          try {
+            const quote = await fetchQuote(s);
+            if (!quote || !quote.c) return null;
+            return {
+              symbol: s,
+              name: searchRes.result.find(r => r.symbol === s)?.description || s,
+              price: quote.c,
+              changePercent: quote.pc > 0 ? ((quote.c - quote.pc) / quote.pc * 100) : 0,
+              type: 'STOCK',
+              currency: 'USD'
+            };
+          } catch { return null; }
+        }));
+        finalResults = quotes.filter(Boolean);
+      } catch (err) {
+        console.error('Finnhub search failed:', err.message);
+      }
+    }
 
-      const symbols = validQuotes.map(q => q.symbol);
-      const quotes = await yf.quote(symbols);
-      const quotesArray = Array.isArray(quotes) ? quotes : [quotes];
+    if (finalResults.length === 0) {
+      // Fallback to Yahoo if Finnhub failed or not configured
+      const results = await enqueue(async () => {
+        const searchResults = await yf.search(q);
+        const validQuotes = (searchResults.quotes || [])
+          .filter(quote => ['EQUITY', 'CRYPTOCURRENCY', 'ETF'].includes(quote.quoteType))
+          .slice(0, 8);
+        if (validQuotes.length === 0) return [];
 
-      return quotesArray.map(quote => ({
-        symbol: quote.quoteType === 'CRYPTOCURRENCY' ? quote.symbol.replace('-USD', 'USDT').replace('MATICUSDT', 'POLUSDT') : quote.symbol,
-        name: quote.shortName || quote.longName || quote.symbol,
-        price: quote.regularMarketPrice,
-        changePercent: quote.regularMarketChangePercent,
-        type: quote.quoteType === 'CRYPTOCURRENCY' ? 'CRYPTO' : 'STOCK',
-        currency: quote.currency || 'USD'
-      })).filter(r => r.price != null);
-    });
+        const symbols = validQuotes.map(q => q.symbol);
+        const quotes = await yf.quote(symbols);
+        const quotesArray = Array.isArray(quotes) ? quotes : [quotes];
 
-    setCache(cacheKey, results, 5 * 60 * 1000); // 5 min
-    res.json(results);
+        return quotesArray.map(quote => ({
+          symbol: quote.quoteType === 'CRYPTOCURRENCY' ? quote.symbol.replace('-USD', 'USDT').replace('MATICUSDT', 'POLUSDT') : quote.symbol,
+          name: quote.shortName || quote.longName || quote.symbol,
+          price: quote.regularMarketPrice,
+          changePercent: quote.regularMarketChangePercent,
+          type: quote.quoteType === 'CRYPTOCURRENCY' ? 'CRYPTO' : 'STOCK',
+          currency: quote.currency || 'USD'
+        })).filter(r => r.price != null);
+      });
+      finalResults = results;
+    }
+
+    setCache(cacheKey, finalResults, 5 * 60 * 1000); // 5 min
+    res.json(finalResults);
   } catch (error) {
     console.error('Search API Error:', error.message);
     res.status(500).json({ error: '검색 실패: ' + error.message });
