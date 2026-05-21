@@ -338,17 +338,64 @@ app.get('/api/chart/:symbol', async (req, res) => {
 
   try {
     const candles = await enqueue(async () => {
-      const period1 = rangeToPeriod1(range);
-      const period2 = new Date();
-      const result = await yf.chart(symbol, { period1, period2, interval });
-      const quotes = result.quotes || [];
-      return quotes.map(q => ({
+      let resultQuotes = [];
+      let yfFailed = false;
+
+      // 1. Try Yahoo Finance First (Fails on Render)
+      try {
+        const period1 = rangeToPeriod1(range);
+        const result = await yf.chart(symbol, { period1, period2: new Date(), interval });
+        resultQuotes = result.quotes || [];
+      } catch (err) {
+        console.error('Yahoo Chart failed, using fallback:', err.message);
+        yfFailed = true;
+      }
+
+      // 2. Fallback for KR Stocks -> Naver fchart
+      if (yfFailed && (symbol.endsWith('.KS') || symbol.endsWith('.KQ'))) {
+        try {
+          const code = symbol.split('.')[0];
+          const tf = (interval === '1mo' || interval === '1M') ? 'month' : interval === '1wk' ? 'week' : 'day';
+          const count = range === '5y' ? 250 : range === '1y' ? 250 : range === '3mo' ? 60 : range === '1mo' ? 22 : 10;
+          const naverUrl = `https://fchart.stock.naver.com/sise.nhn?symbol=${code}&timeframe=${tf}&count=${count}&requestType=0`;
+          const resp = await fetch(naverUrl);
+          const xml = await resp.text();
+          const items = xml.match(/<item data="([^"]+)"/g) || [];
+          resultQuotes = items.map(item => {
+             const data = item.match(/data="([^"]+)"/)[1].split('|');
+             const dateStr = data[0];
+             const y = dateStr.substring(0,4), m = dateStr.substring(4,6), d = dateStr.substring(6,8);
+             return {
+               date: new Date(`${y}-${m}-${d}T09:00:00Z`),
+               open: parseFloat(data[1]), high: parseFloat(data[2]),
+               low: parseFloat(data[3]), close: parseFloat(data[4]), volume: parseFloat(data[5])
+             };
+          });
+        } catch(e) { console.error('Naver chart fallback failed:', e.message); }
+      } 
+      // 3. Fallback for US Stocks -> Finnhub
+      else if (yfFailed && process.env.FINNHUB_TOKEN) {
+        try {
+           const resMap = { '15m': '15', '60m': '60', '1d': 'D', '1wk': 'W', '1mo': 'M' };
+           const resolution = resMap[interval] || 'D';
+           const from = Math.floor(rangeToPeriod1(range).getTime() / 1000);
+           const to = Math.floor(Date.now() / 1000);
+           const finnUrl = `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=${resolution}&from=${from}&to=${to}&token=${process.env.FINNHUB_TOKEN}`;
+           const resp = await fetch(finnUrl);
+           const json = await resp.json();
+           if (json.s === 'ok') {
+              resultQuotes = json.t.map((t, i) => ({
+                 date: new Date(t * 1000),
+                 open: json.o[i], high: json.h[i],
+                 low: json.l[i], close: json.c[i], volume: json.v[i]
+              }));
+           }
+        } catch(e) { console.error('Finnhub chart fallback failed:', e.message); }
+      }
+
+      return resultQuotes.map(q => ({
         time: Math.floor(new Date(q.date).getTime() / 1000),
-        open: q.open,
-        high: q.high,
-        low: q.low,
-        close: q.close,
-        volume: q.volume
+        open: q.open, high: q.high, low: q.low, close: q.close, volume: q.volume
       })).filter(c => c.open != null && c.close != null && !isNaN(c.time));
     });
 
@@ -376,11 +423,35 @@ app.get('/api/sparkline/:symbol', async (req, res) => {
 
   try {
     const prices = await enqueue(async () => {
-      const period1 = rangeToPeriod1('1wk');
-      const result = await yf.chart(symbol, { period1, period2: new Date(), interval: '15m' });
-      return (result.quotes || [])
-        .filter(q => q.close != null)
-        .map(q => q.close);
+      let resultQuotes = [];
+      let yfFailed = false;
+      try {
+        const period1 = rangeToPeriod1('1wk');
+        const result = await yf.chart(symbol, { period1, period2: new Date(), interval: '15m' });
+        resultQuotes = result.quotes || [];
+      } catch(err) {
+        yfFailed = true;
+      }
+      
+      if (yfFailed && (symbol.endsWith('.KS') || symbol.endsWith('.KQ'))) {
+        try {
+          const code = symbol.split('.')[0];
+          const resp = await fetch(`https://fchart.stock.naver.com/sise.nhn?symbol=${code}&timeframe=day&count=7&requestType=0`);
+          const xml = await resp.text();
+          const items = xml.match(/<item data="([^"]+)"/g) || [];
+          resultQuotes = items.map(item => ({ close: parseFloat(item.match(/data="([^"]+)"/)[1].split('|')[4]) }));
+        } catch(e) {}
+      } else if (yfFailed && process.env.FINNHUB_TOKEN) {
+        try {
+           const from = Math.floor(rangeToPeriod1('1wk').getTime() / 1000);
+           const to = Math.floor(Date.now() / 1000);
+           const resp = await fetch(`https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=15&from=${from}&to=${to}&token=${process.env.FINNHUB_TOKEN}`);
+           const json = await resp.json();
+           if (json.s === 'ok') resultQuotes = json.c.map(c => ({ close: c }));
+        } catch(e) {}
+      }
+
+      return resultQuotes.filter(q => q.close != null).map(q => q.close);
     });
 
     setCache(cacheKey, prices, 30 * 60 * 1000); // 30 min

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, memo } from 'react';
 import './index.css';
 import { MiniChart, ChartModal, PieChart, AssetAllocationBar } from './ChartComponents';
 
-const TOP_10_CRYPTO = ['BTCUSDT','ETHUSDT','BNBUSDT','SOLUSDT','XRPUSDT','DOGEUSDT','ADAUSDT','AVAXUSDT','DOTUSDT','MATICUSDT'];
+const TOP_10_CRYPTO = ['BTCUSDT','ETHUSDT','BNBUSDT','SOLUSDT','XRPUSDT','DOGEUSDT','ADAUSDT','AVAXUSDT','DOTUSDT','POLUSDT'];
 const USD_TO_KRW = 1380;
 
 const fmtPrice = (price, currency) =>
