@@ -407,7 +407,7 @@ export default function App() {
     );
   };
 
-  const TradeModal = () => {
+  const renderTradeModal = () => {
     if (!tradingAsset) return null;
     const q = parseFloat(qty) || 0;
     const total = q * tradingAsset.price;
@@ -450,7 +450,7 @@ export default function App() {
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem', alignItems: 'center' }}>
                 <label style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>수량</label>
                 <div style={{ display: 'flex', gap: '0.3rem' }}>
-                  {tradeType === 'BUY' && [0.25, 0.5, 1.0].map(ratio => (
+                  {tradeType === 'BUY' && [0.1, 0.25, 0.5, 1.0].map(ratio => (
                     <button key={ratio} type="button" className="btn"
                       style={{ padding: '2px 7px', fontSize: '0.72rem', background: 'rgba(255,255,255,0.08)', color: 'var(--text-secondary)' }}
                       onClick={() => {
@@ -664,7 +664,7 @@ export default function App() {
           {activeTab === 'HISTORY' && <HistoryView />}
         </div>
       </div>
-      <TradeModal />
+      {renderTradeModal()}
       {chartAsset && <ChartModal asset={chartAsset} onClose={() => setChartAsset(null)} />}
     </div>
   );

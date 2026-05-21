@@ -23,6 +23,9 @@ export function MiniChart({ symbol, type, currency }) {
             chartData = json.map((val, i) => ({ time: now - (json.length - i) * 86400, value: val }));
           }
         }
+        if (chartData.length > 0) {
+          chartData = chartData.sort((a,b) => a.time - b.time).filter((v, i, a) => i === 0 || v.time > a[i-1].time);
+        }
         if (chartData.length === 0) return;
 
         chart = createChart(chartContainerRef.current, {
@@ -144,6 +147,9 @@ export function ChartModal({ asset, onClose }) {
            chartData = data.map(d => ({ time: d.time, value: d.value }));
         }
 
+        if (chartData.length > 0) {
+          chartData = chartData.sort((a,b) => a.time - b.time).filter((v, i, a) => i === 0 || v.time > a[i-1].time);
+        }
         if (chartData.length === 0) { setError('데이터가 없습니다.'); return; }
 
         if (chartContainerRef.current) {
