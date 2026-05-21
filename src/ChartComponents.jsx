@@ -150,7 +150,10 @@ export function ChartModal({ asset, onClose }) {
            const res = await fetch(`/api/chart/${encodeURIComponent(asset.symbol)}?interval=${interval}&range=${period}`);
            const data = await res.json();
            if (!res.ok) { setError(data.error || '차트 로딩 실패'); return; }
-           chartData = data.map(d => ({ time: d.time, value: d.value }));
+           // Backend returns {time, open, high, low, close} — map close as value
+           chartData = data
+             .filter(d => d.close != null && !isNaN(d.close))
+             .map(d => ({ time: d.time, value: d.close }));
         }
 
         if (chartData.length > 0) {
@@ -177,6 +180,15 @@ export function ChartModal({ asset, onClose }) {
           
           lineSeries.setData(chartData);
           chart.timeScale().fitContent();
+
+          // Attach ResizeObserver correctly
+          const ro = new ResizeObserver(entries => {
+            if (entries[0] && chart) {
+              chart.applyOptions({ width: entries[0].contentRect.width });
+            }
+          });
+          ro.observe(chartContainerRef.current);
+          chartContainerRef.current._ro = ro;
         }
       } catch (e) {
         setError('차트 데이터 로딩 실패: ' + e.message);
@@ -184,7 +196,12 @@ export function ChartModal({ asset, onClose }) {
     };
     
     fetchAndDraw();
-    return () => chart && chart.remove();
+    return () => {
+      if (chartContainerRef.current && chartContainerRef.current._ro) {
+        chartContainerRef.current._ro.disconnect();
+      }
+      if (chart) chart.remove();
+    };
   }, [asset.symbol, interval, period]);
 
   return (

@@ -749,23 +749,21 @@ export default function App() {
           {activeTab === 'HISTORY' && <HistoryView />}
           {activeTab === 'PORTFOLIO' && (
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', alignItems: 'center' }}>
+              <div style={{ marginBottom: '1rem' }}>
                 <h3 style={{ margin: 0 }}><TrendingUp size={18} style={{ marginRight: 6, verticalAlign: "text-bottom" }} /> 나의 자산 추이</h3>
-                <button className="btn" style={{ background: 'var(--btn-bg)', color: 'var(--text-primary)', fontSize: '0.78rem', padding: '4px 10px' }}
-                  onClick={() => saveBalanceSnapshot(token(), totalAssetKRW)}>고지점 추가</button>
               </div>
               <div style={{ background: 'var(--row-bg)', padding: '1rem', borderRadius: '12px' }}>
                 {portfolioHistory.length < 1 ? (
                   <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '3rem 1rem' }}>
                     <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📈</div>
                     <div>아직 기록이 없습니다.</div>
-                    <div style={{ fontSize: '0.8rem', marginTop: '0.4rem' }}>'고지점 추가' 버튼을 누르거나, 탭을 열 때마다 1시간 주기로 자동 기록됩니다.</div>
+                    <div style={{ fontSize: '0.8rem', marginTop: '0.4rem' }}>앱을 켜두시면 1시간 주기로 자동 기록됩니다.</div>
                   </div>
                 ) : portfolioHistory.length < 2 ? (
                   <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '2rem' }}>
                     <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⏳</div>
                     <div>기록 1개. 선 그래프는 기록이 2개 이상이어야 그려집니다.</div>
-                    <div style={{ fontSize: '0.8rem', marginTop: '0.4rem' }}>'고지점 추가'를 다시 눠르거나, 1시간 후 다시 탭을 열어보세요.</div>
+                    <div style={{ fontSize: '0.8rem', marginTop: '0.4rem' }}>1시간 후 다시 탭을 열어보세요.</div>
                   </div>
                 ) : (
                   <PortfolioHistoryChart data={portfolioHistory} />
