@@ -345,12 +345,10 @@ export default function App() {
     }))
   ];
 
-  const RankingView = () => {
-    const myNickname = user?.nickname;
+  // 전체 유저 랭킹 실시간 계산 (헤더 및 RankingView에서 공통 사용)
+  const computedRanking = React.useMemo(() => {
     const INITIAL = 100_000_000;
-    
-    // Calculate live total asset for each user
-    const computedRanking = ranking.map(r => {
+    return ranking.map(r => {
       let holdingsValueEst = 0;
       const computedHoldings = (r.holdings || []).map(h => {
         const live = liveData[h.symbol];
@@ -358,11 +356,9 @@ export default function App() {
         const currentPrice = live?.price ?? stock?.price ?? h.avgPrice;
         const currency = live?.currency ?? stock?.currency ?? guessCurrency(h.symbol, h.type === 'CRYPTO' ? 'USD' : 'KRW');
         const priceKRW = currency === 'KRW' ? currentPrice : currentPrice * USD_TO_KRW;
-        
         holdingsValueEst += h.quantity * priceKRW;
         return { ...h, currentPrice, priceKRW };
       });
-      
       const totalEst = r.balance + holdingsValueEst;
       return {
         ...r,
@@ -373,6 +369,10 @@ export default function App() {
       };
     }).sort((a, b) => b.totalAsset - a.totalAsset)
       .map((r, i) => ({ ...r, rank: i + 1 }));
+  }, [ranking, liveData, stockData]);
+
+  const RankingView = () => {
+    const myNickname = user?.nickname;
 
     return (
       <div>
@@ -622,9 +622,9 @@ export default function App() {
               <span style={{ color: totalPnl >= 0 ? 'var(--success-color)' : 'var(--danger-color)', fontWeight: 600 }}>
                 {totalPnl >= 0 ? '+' : ''}{totalPnlPct}%
               </span>
-              {ranking.find(r => r.nickname === user.nickname) && (
+              {computedRanking.find(r => r.nickname === user.nickname) && (
                 <span style={{ color: 'var(--text-secondary)', background: 'var(--btn-bg)', padding: '1px 5px', borderRadius: '4px', fontSize: '0.7rem' }}>
-                  {ranking.find(r => r.nickname === user.nickname).rank}위
+                  {computedRanking.find(r => r.nickname === user.nickname).rank}위
                 </span>
               )}
             </div>
@@ -696,7 +696,6 @@ export default function App() {
             {[['CRYPTO', <><Coins size={16} style={{ marginRight: 4, verticalAlign: "text-bottom" }} /> 코인 Top 10</>],
               ['STOCK', <><TrendingUp size={16} style={{ marginRight: 4, verticalAlign: "text-bottom" }} /> 주식 Top 10</>],
               ['SEARCH', <><Search size={16} style={{ marginRight: 4, verticalAlign: "text-bottom" }} /> 검색 결과</>],
-              ['RANKING', <><Trophy size={16} style={{ marginRight: 4, verticalAlign: "text-bottom" }} /> 랭킹</>],
               ['HISTORY', <><ScrollText size={16} style={{ marginRight: 4, verticalAlign: "text-bottom" }} /> 거래 내역</>],
               ['PORTFOLIO', <><PieChartIcon size={16} style={{ marginRight: 4, verticalAlign: "text-bottom" }} /> 포트폴리오 차트</>]]
               .map(([key, label]) => (
