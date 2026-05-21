@@ -410,18 +410,16 @@ app.get('/api/transactions', authenticateToken, (req, res) => {
   );
 });
 
-// Execute Trade (BUY/SELL) — promise-based to fix callback race condition
-app.post('/api/trade', authenticateToken, (req, res) => {
+// Execute Trade (BUY/SELL) — uses unified db.beginTransaction()
+app.post('/api/trade', authenticateToken, async (req, res) => {
   const { asset_symbol, asset_type, type, quantity, price } = req.body;
   const userId = req.user.userId;
 
-  // 한국 주식(.KS, .KQ)이 아니면 거래 금액은 USD 기준이므로 KRW로 환산해서 잔고에서 차감
   const isKRW = asset_symbol.endsWith('.KS') || asset_symbol.endsWith('.KQ');
   const USD_TO_KRW = 1380;
   const totalAmountAssetCurrency = quantity * price;
   const totalAmountKRW = isKRW ? totalAmountAssetCurrency : totalAmountAssetCurrency * USD_TO_KRW;
 
-  // 수수료 계산 (코인: 0.05%, 국내주식: 0.015%, 해외주식: 0.1%)
   const feeRate = asset_type === 'CRYPTO' ? 0.0005 : (isKRW ? 0.00015 : 0.001);
   const feeKRW = totalAmountKRW * feeRate;
 
@@ -430,57 +428,54 @@ app.post('/api/trade', authenticateToken, (req, res) => {
   if (!asset_symbol || !asset_type || !quantity || !price)
     return res.status(400).json({ error: '필수 파라미터가 누락되었습니다.' });
 
-  const dbGet = (sql, params) => new Promise((resolve, reject) =>
-    db.get(sql, params, (err, row) => err ? reject(err) : resolve(row)));
-  const dbRun = (sql, params) => new Promise((resolve, reject) =>
-    db.run(sql, params, function (err) { err ? reject(err) : resolve(this); }));
+  let tx;
+  try {
+    tx = await db.beginTransaction();
 
-  (async () => {
-    await dbRun('BEGIN TRANSACTION', []);
-    try {
-      const user = await dbGet('SELECT balance FROM users WHERE id = ?', [userId]);
-      if (!user) throw new Error('사용자를 찾을 수 없습니다.');
+    const user = await tx.get('SELECT balance FROM users WHERE id = ?', [userId]);
+    if (!user) throw new Error('사용자를 찾을 수 없습니다.');
 
-      if (type === 'BUY') {
-        const amountToDeduct = totalAmountKRW + feeKRW;
-        if (user.balance < amountToDeduct) {
-          await dbRun('ROLLBACK', []);
-          return res.status(400).json({ error: `잔액 부족 (수수료 포함 필요: ₩${amountToDeduct.toLocaleString('ko-KR', { maximumFractionDigits: 0 })})` });
-        }
-        await dbRun('UPDATE users SET balance = balance - ? WHERE id = ?', [amountToDeduct, userId]);
-        const portfolio = await dbGet('SELECT * FROM portfolios WHERE user_id = ? AND asset_symbol = ?', [userId, asset_symbol]);
-        if (portfolio) {
-          const newQty = portfolio.quantity + quantity;
-          const newAvg = ((portfolio.quantity * portfolio.average_price) + totalAmountAssetCurrency) / newQty;
-          await dbRun('UPDATE portfolios SET quantity = ?, average_price = ? WHERE id = ?', [newQty, newAvg, portfolio.id]);
-        } else {
-          await dbRun('INSERT INTO portfolios (user_id, asset_symbol, asset_type, quantity, average_price) VALUES (?, ?, ?, ?, ?)',
-            [userId, asset_symbol, asset_type, quantity, price]);
-        }
-      } else {
-        const amountToAdd = totalAmountKRW - feeKRW;
-        const portfolio = await dbGet('SELECT * FROM portfolios WHERE user_id = ? AND asset_symbol = ?', [userId, asset_symbol]);
-        if (!portfolio || portfolio.quantity < quantity) {
-          await dbRun('ROLLBACK', []);
-          return res.status(400).json({ error: `보유 수량 부족 (보유: ${portfolio ? portfolio.quantity.toFixed(6) : 0}개)` });
-        }
-        await dbRun('UPDATE users SET balance = balance + ? WHERE id = ?', [amountToAdd, userId]);
-        await dbRun('UPDATE portfolios SET quantity = ? WHERE id = ?', [portfolio.quantity - quantity, portfolio.id]);
+    if (type === 'BUY') {
+      const amountToDeduct = totalAmountKRW + feeKRW;
+      if (user.balance < amountToDeduct) {
+        await tx.rollback();
+        return res.status(400).json({ error: `잔액 부족 (수수료 포함 필요: ₩${amountToDeduct.toLocaleString('ko-KR', { maximumFractionDigits: 0 })})` });
       }
-
-      await dbRun('INSERT INTO transactions (user_id, asset_symbol, asset_type, type, quantity, price, total_amount, fee) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [userId, asset_symbol, asset_type, type, quantity, price, totalAmountKRW, feeKRW]);
-      await dbRun('COMMIT', []);
-
-      res.json({
-        message: `${asset_symbol} ${type === 'BUY' ? '매수' : '매도'} 체결! (수수료: ₩${feeKRW.toLocaleString('ko-KR', { maximumFractionDigits: 0 })})`,
-        totalAmount: totalAmountKRW, type, fee: feeKRW
-      });
-    } catch (err) {
-      try { await dbRun('ROLLBACK', []); } catch (_) { }
-      res.status(500).json({ error: '거래 처리 실패: ' + err.message });
+      await tx.run('UPDATE users SET balance = balance - ? WHERE id = ?', [amountToDeduct, userId]);
+      const portfolio = await tx.get('SELECT * FROM portfolios WHERE user_id = ? AND asset_symbol = ?', [userId, asset_symbol]);
+      if (portfolio) {
+        const newQty = portfolio.quantity + quantity;
+        const newAvg = ((portfolio.quantity * portfolio.average_price) + totalAmountAssetCurrency) / newQty;
+        await tx.run('UPDATE portfolios SET quantity = ?, average_price = ? WHERE id = ?', [newQty, newAvg, portfolio.id]);
+      } else {
+        await tx.run('INSERT INTO portfolios (user_id, asset_symbol, asset_type, quantity, average_price) VALUES (?, ?, ?, ?, ?)',
+          [userId, asset_symbol, asset_type, quantity, price]);
+      }
+    } else {
+      const amountToAdd = totalAmountKRW - feeKRW;
+      const portfolio = await tx.get('SELECT * FROM portfolios WHERE user_id = ? AND asset_symbol = ?', [userId, asset_symbol]);
+      if (!portfolio || portfolio.quantity < quantity) {
+        await tx.rollback();
+        return res.status(400).json({ error: `보유 수량 부족 (보유: ${portfolio ? portfolio.quantity.toFixed(6) : 0}개)` });
+      }
+      await tx.run('UPDATE users SET balance = balance + ? WHERE id = ?', [amountToAdd, userId]);
+      await tx.run('UPDATE portfolios SET quantity = ? WHERE id = ?', [portfolio.quantity - quantity, portfolio.id]);
     }
-  })();
+
+    await tx.run(
+      'INSERT INTO transactions (user_id, asset_symbol, asset_type, type, quantity, price, total_amount, fee) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [userId, asset_symbol, asset_type, type, quantity, price, totalAmountKRW, feeKRW]
+    );
+    await tx.commit();
+
+    res.json({
+      message: `${asset_symbol} ${type === 'BUY' ? '매수' : '매도'} 체결! (수수료: ₩${feeKRW.toLocaleString('ko-KR', { maximumFractionDigits: 0 })})`,
+      totalAmount: totalAmountKRW, type, fee: feeKRW
+    });
+  } catch (err) {
+    if (tx) { try { await tx.rollback(); } catch (_) {} }
+    res.status(500).json({ error: '거래 처리 실패: ' + err.message });
+  }
 });
 
 app.listen(PORT, () => console.log(`✅ Server running on http://localhost:${PORT}`));
