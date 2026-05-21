@@ -39,6 +39,8 @@ if (DATABASE_URL) {
       fee REAL DEFAULT 0,
       timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+    UPDATE portfolios SET asset_symbol = 'POLUSDT' WHERE asset_symbol IN ('MATICUSDT', 'MATIC-USD');
+    UPDATE transactions SET asset_symbol = 'POLUSDT' WHERE asset_symbol IN ('MATICUSDT', 'MATIC-USD');
   `;
 
   pool.query(initSQL)
@@ -136,6 +138,8 @@ if (DATABASE_URL) {
           timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (user_id) REFERENCES users (id)
         )`);
+        db.run(`UPDATE portfolios SET asset_symbol = 'POLUSDT' WHERE asset_symbol IN ('MATICUSDT', 'MATIC-USD')`);
+        db.run(`UPDATE transactions SET asset_symbol = 'POLUSDT' WHERE asset_symbol IN ('MATICUSDT', 'MATIC-USD')`);
       });
     }
   });

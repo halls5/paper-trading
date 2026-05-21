@@ -119,6 +119,7 @@ const KR_TRANSLATE = {
   '아마존': 'amazon', '구글': 'google', '알파벳': 'alphabet', '메타': 'meta',
   '비트코인': 'BTCUSDT', '이더리움': 'ETHUSDT', '도지': 'DOGEUSDT', '리플': 'XRPUSDT',
   '솔라나': 'SOLUSDT', '에이다': 'ADAUSDT', '아발란체': 'AVAXUSDT',
+  '매틱': 'POLUSDT', '폴리곤': 'POLUSDT', 'matic': 'POLUSDT', 'MATIC': 'POLUSDT'
 };
 
 // Search — with 5-min cache
@@ -141,27 +142,28 @@ app.get('/api/search', async (req, res) => {
     return res.json(result);
   }
 
-  // If translated to a KS stock symbol (e.g. 005930.KS), quote directly
+  // If translated to a KS stock symbol (e.g. 005930.KS), use Naver Finance Polling API (bypass Yahoo IP block)
   if (q.endsWith('.KS') || q.endsWith('.KQ')) {
     try {
-      const quote = await enqueue(async () => {
-        const quotes = await yf.quote([q]);
-        return Array.isArray(quotes) ? quotes[0] : quotes;
-      });
-      if (quote?.regularMarketPrice) {
+      const code = q.split('.')[0];
+      const naverUrl = `https://polling.finance.naver.com/api/realtime?query=SERVICE_ITEM:${code}`;
+      const naverRes = await fetch(naverUrl);
+      const naverJson = await naverRes.json();
+      const naverData = naverJson.result.areas[0].datas[0];
+      if (naverData) {
         const result = [{
-          symbol: quote.symbol,
-          name: quote.shortName || quote.longName || quote.symbol,
-          price: quote.regularMarketPrice,
-          changePercent: quote.regularMarketChangePercent,
+          symbol: q,
+          name: naverData.nm,
+          price: naverData.nv,
+          changePercent: naverData.cr * (naverData.cv === 0 ? 0 : (naverData.nv >= naverData.pcv ? 1 : -1)),
           type: 'STOCK',
-          currency: quote.currency || 'KRW'
+          currency: 'KRW'
         }];
         setCache(cacheKey, result, 5 * 60 * 1000);
         return res.json(result);
       }
     } catch (err) {
-      console.error('KS direct search error:', err.message);
+      console.error('Naver KS direct search error:', err.message);
     }
   }
 
@@ -178,7 +180,7 @@ app.get('/api/search', async (req, res) => {
       const quotesArray = Array.isArray(quotes) ? quotes : [quotes];
 
       return quotesArray.map(quote => ({
-        symbol: quote.quoteType === 'CRYPTOCURRENCY' ? quote.symbol.replace('-USD', 'USDT') : quote.symbol,
+        symbol: quote.quoteType === 'CRYPTOCURRENCY' ? quote.symbol.replace('-USD', 'USDT').replace('MATICUSDT', 'POLUSDT') : quote.symbol,
         name: quote.shortName || quote.longName || quote.symbol,
         price: quote.regularMarketPrice,
         changePercent: quote.regularMarketChangePercent,
@@ -224,6 +226,31 @@ app.get('/api/stocks/top', async (req, res) => {
 
   try {
     let usResults = [];
+    let krResults = krStocksStatic; // start with static, update below
+
+    // Try to fetch KR stocks via Naver Finance API (Bypass Yahoo IP Blocks)
+    try {
+      const codes = krStocksStatic.map(s => s.symbol.split('.')[0]).join(',');
+      const naverUrl = `https://polling.finance.naver.com/api/realtime?query=SERVICE_ITEM:${codes}`;
+      const naverRes = await fetch(naverUrl);
+      const naverJson = await naverRes.json();
+      const naverDatas = naverJson.result.areas[0].datas;
+      
+      krResults = krStocksStatic.map(s => {
+        const code = s.symbol.split('.')[0];
+        const data = naverDatas.find(d => d.cd === code);
+        if (data) {
+          return {
+            ...s,
+            price: data.nv,
+            changePercent: data.cr * (data.cv === 0 ? 0 : (data.nv >= data.pcv ? 1 : -1))
+          };
+        }
+        return s;
+      });
+    } catch (e) {
+      console.error('Naver KR Stocks fallback failed:', e.message);
+    }
 
     if (FINNHUB_TOKEN) {
       // Use Finnhub API (requires free API key from finnhub.io)
@@ -267,7 +294,7 @@ app.get('/api/stocks/top', async (req, res) => {
       }
     }
 
-    const results = [...usResults, ...krStocksStatic];
+    const results = [...usResults, ...krResults];
     setCache(cacheKey, results, 3 * 60 * 1000); // 3 min
     res.json(results);
   } catch (error) {
