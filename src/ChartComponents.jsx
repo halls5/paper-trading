@@ -129,10 +129,16 @@ export function ChartModal({ asset, onClose }) {
       try {
         let chartData = [];
         if (asset.type === 'CRYPTO' || asset.symbol.endsWith('USDT')) {
-           const bInterval = interval === '1wk' ? '1w' : interval === '1mo' ? '1M' : '1d';
+           let bInterval = interval;
+           if (interval === '1wk') bInterval = '1w';
+           if (interval === '1mo') bInterval = '1M';
+           if (interval === '60m') bInterval = '4h'; // map 60m Yahoo request to 4h for Binance
+           
            let limit = 30;
-           if (period === '3mo') limit = interval === '1wk' ? 12 : 90;
-           if (period === '1y') limit = interval === '1mo' ? 12 : 365;
+           if (period === '5d') limit = interval === '15m' ? 480 : 30;
+           if (period === '1mo') limit = interval === '60m' ? 180 : 30;
+           if (period === '3mo') limit = interval === '1d' ? 90 : 30;
+           if (period === '1y') limit = interval === '1wk' ? 52 : 365;
            if (period === 'ytd') limit = 365;
            if (period === '5y') limit = 60;
            
@@ -190,9 +196,15 @@ export function ChartModal({ asset, onClose }) {
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.2rem' }}>{asset.symbol}</p>
         
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-          {[['1d','1mo','1달 (일봉)'], ['1wk','3mo','3달 (주봉)'], ['1mo','1y','1년 (월봉)'], ['1d','ytd','YTD (일봉)'], ['1mo','5y','5년 (월봉)']].map(([iv, rng, lbl]) => (
-            <button key={rng} className="btn" onClick={() => { setInterval(iv); setPeriod(rng); }}
-                    style={{ padding: '4px 10px', fontSize: '0.8rem', background: period === rng ? 'var(--accent-color)' : 'rgba(255,255,255,0.1)', color: 'white' }}>
+          {[
+            ['15m', '5d', '단기 (15분봉)'],
+            ['60m', '1mo', '중기 (4시간/1시간봉)'],
+            ['1d', '3mo', '장기 (일봉)'],
+            ['1wk', '1y', '1년 (주봉)'],
+            ['1mo', '5y', '5년 (월봉)']
+          ].map(([iv, rng, lbl]) => (
+            <button key={rng+iv} className="btn" onClick={() => { setInterval(iv); setPeriod(rng); }}
+                    style={{ padding: '4px 10px', fontSize: '0.8rem', background: period === rng && interval === iv ? 'var(--accent-color)' : 'rgba(255,255,255,0.1)', color: 'white' }}>
               {lbl}
             </button>
           ))}

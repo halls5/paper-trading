@@ -178,7 +178,7 @@ app.get('/api/search', async (req, res) => {
       const quotesArray = Array.isArray(quotes) ? quotes : [quotes];
 
       return quotesArray.map(quote => ({
-        symbol: quote.symbol,
+        symbol: quote.quoteType === 'CRYPTOCURRENCY' ? quote.symbol.replace('-USD', 'USDT') : quote.symbol,
         name: quote.shortName || quote.longName || quote.symbol,
         price: quote.regularMarketPrice,
         changePercent: quote.regularMarketChangePercent,
