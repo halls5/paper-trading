@@ -279,6 +279,33 @@ export default function App() {
 
   const RankingView = () => {
     const myNickname = user?.nickname;
+    const INITIAL = 100_000_000;
+    
+    // Calculate live total asset for each user
+    const computedRanking = ranking.map(r => {
+      let holdingsValueEst = 0;
+      const computedHoldings = (r.holdings || []).map(h => {
+        const live = liveData[h.symbol];
+        const stock = stockData.find(s => s.symbol === h.symbol);
+        const currentPrice = live?.price ?? stock?.price ?? h.avgPrice;
+        const currency = live?.currency ?? stock?.currency ?? guessCurrency(h.symbol, h.type === 'CRYPTO' ? 'USD' : 'KRW');
+        const priceKRW = currency === 'KRW' ? currentPrice : currentPrice * USD_TO_KRW;
+        
+        holdingsValueEst += h.quantity * priceKRW;
+        return { ...h, currentPrice, priceKRW };
+      });
+      
+      const totalEst = r.balance + holdingsValueEst;
+      return {
+        ...r,
+        holdings: computedHoldings,
+        totalAsset: totalEst,
+        profitLoss: totalEst - INITIAL,
+        returnRate: ((totalEst - INITIAL) / INITIAL * 100).toFixed(2)
+      };
+    }).sort((a, b) => b.totalAsset - a.totalAsset)
+      .map((r, i) => ({ ...r, rank: i + 1 }));
+
     return (
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
@@ -290,19 +317,15 @@ export default function App() {
           <span>순위</span><span>닉네임 / 포트폴리오</span><span style={{ textAlign: 'right' }}>총 자산</span><span style={{ textAlign: 'right' }}>손익</span><span style={{ textAlign: 'right' }}>수익률</span>
         </div>
 
-        {ranking.length === 0 ? (
+        {computedRanking.length === 0 ? (
           <p style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '2rem' }}>랭킹 데이터가 없습니다.</p>
-        ) : ranking.map(r => {
+        ) : computedRanking.map(r => {
           const isMe = r.nickname === myNickname;
           const isPos = r.profitLoss >= 0;
           const medal = r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : `${r.rank}`;
-          const holdingsValueEst = (r.holdings || []).reduce((s, h) => {
-            const priceKRW = h.type === 'KRW' || h.avgPrice > 10000 ? h.avgPrice : h.avgPrice * USD_TO_KRW;
-            return s + h.quantity * priceKRW;
-          }, 0);
-          const totalEst = r.totalAsset || (r.balance + holdingsValueEst);
+          
           return (
-            <div key={r.rank} style={{
+            <div key={r.nickname} style={{
               display: 'grid', gridTemplateColumns: '36px 1fr 120px 100px 80px', gap: '0.5rem', padding: '0.7rem 0.8rem',
               background: isMe ? 'rgba(59,130,246,0.12)' : 'rgba(0,0,0,0.12)',
               borderRadius: '8px', marginBottom: '0.4rem',
@@ -315,7 +338,7 @@ export default function App() {
                   {isMe && <span style={{ fontSize: '0.65rem', background: 'var(--accent-color)', padding: '1px 5px', borderRadius: '3px' }}>나</span>}
                 </div>
                 {(r.holdings?.length > 0 || r.balance > 0) && (
-                  <AssetAllocationBar holdings={r.holdings} balance={r.balance} totalKRW={totalEst} usdKrw={USD_TO_KRW} />
+                  <AssetAllocationBar holdings={r.holdings} balance={r.balance} totalKRW={r.totalAsset} usdKrw={USD_TO_KRW} />
                 )}
                 {(r.holdings?.length > 0 || r.balance > 0) && (() => {
                   const items = [...(r.balance > 0 ? ['현금'] : []), ...(r.holdings || []).map(h => h.symbol)];
@@ -326,7 +349,7 @@ export default function App() {
                   );
                 })()}
               </div>
-              <span style={{ textAlign: 'right', fontWeight: 600, fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>{fmtBalance(totalEst)}</span>
+              <span style={{ textAlign: 'right', fontWeight: 600, fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>{fmtBalance(r.totalAsset)}</span>
               <span style={{ textAlign: 'right', color: isPos ? 'var(--success-color)' : 'var(--danger-color)', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
                 {isPos ? '+' : ''}{fmtBalance(r.profitLoss)}
               </span>

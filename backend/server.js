@@ -312,50 +312,17 @@ app.get('/api/sparkline/:symbol', async (req, res) => {
 
 // ─── Ranking ──────────────────────────────────────────────────────────────────
 app.get('/api/ranking', (req, res) => {
-  const query = `
-    SELECT 
-      u.id, 
-      u.nickname, 
-      u.balance,
-      COALESCE(
-        (SELECT SUM(
-          CASE 
-            WHEN p.asset_symbol LIKE '%.KS' OR p.asset_symbol LIKE '%.KQ' THEN p.quantity * p.average_price
-            ELSE p.quantity * p.average_price * 1380
-          END
-        ) FROM portfolios p WHERE p.user_id = u.id AND p.quantity > 0), 0
-      ) AS holding_value
-    FROM users u
-    ORDER BY (u.balance + holding_value) DESC
-    LIMIT 50
-  `;
-
-  db.all(query, [], (err, users) => {
+  db.all('SELECT id, nickname, balance FROM users', [], (err, users) => {
     if (err) return res.status(500).json({ error: '데이터베이스 오류' });
+    if (users.length === 0) return res.json([]);
 
-    const INITIAL = 100_000_000;
-    // For each user, also fetch their portfolio breakdown
     let pending = users.length;
-    if (pending === 0) return res.json([]);
-
-    const results = users.map((user, i) => {
-      const totalAsset = user.balance + user.holding_value;
-      return {
-        rank: i + 1,
-        nickname: user.nickname,
-        balance: user.balance,
-        totalAsset: totalAsset,
-        profitLoss: totalAsset - INITIAL,
-        returnRate: ((totalAsset - INITIAL) / INITIAL * 100).toFixed(2),
-        holdings: []
-      };
-    });
-
-    users.forEach((user, i) => {
+    users.forEach((user) => {
+      user.holdings = [];
       db.all('SELECT asset_symbol, asset_type, quantity, average_price FROM portfolios WHERE user_id = ? AND quantity > 0',
         [user.id], (err2, rows) => {
           if (!err2 && rows) {
-            results[i].holdings = rows.map(r => ({
+            user.holdings = rows.map(r => ({
               symbol: r.asset_symbol,
               type: r.asset_type,
               quantity: r.quantity,
@@ -363,7 +330,7 @@ app.get('/api/ranking', (req, res) => {
             }));
           }
           pending--;
-          if (pending === 0) res.json(results);
+          if (pending === 0) res.json(users);
         });
     });
   });

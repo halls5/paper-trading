@@ -8,9 +8,22 @@ export function MiniChart({ symbol, type, currency }) {
     let chart;
     const fetchAndDraw = async () => {
       try {
-        const res = await fetch(`/api/sparkline/${encodeURIComponent(symbol)}`);
-        const data = await res.json();
-        if (!res.ok) return;
+        let chartData = [];
+        if (type === 'CRYPTO' || symbol.endsWith('USDT')) {
+          const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1d&limit=30`);
+          const json = await res.json();
+          if (res.ok) {
+            chartData = json.map(k => ({ time: Math.floor(k[0]/1000), value: parseFloat(k[4]) }));
+          }
+        } else {
+          const res = await fetch(`/api/sparkline/${encodeURIComponent(symbol)}`);
+          const json = await res.json();
+          if (res.ok && Array.isArray(json)) {
+            const now = Math.floor(Date.now() / 1000);
+            chartData = json.map((val, i) => ({ time: now - (json.length - i) * 86400, value: val }));
+          }
+        }
+        if (chartData.length === 0) return;
 
         chart = createChart(chartContainerRef.current, {
           width: 80, height: 35,
@@ -21,10 +34,10 @@ export function MiniChart({ symbol, type, currency }) {
         });
 
         const lineSeries = chart.addLineSeries({
-          color: data[data.length - 1]?.value >= data[0]?.value ? '#10b981' : '#ef4444',
+          color: chartData[chartData.length - 1].value >= chartData[0].value ? '#10b981' : '#ef4444',
           lineWidth: 2, crosshairMarkerVisible: false, priceLineVisible: false, lastValueVisible: false
         });
-        lineSeries.setData(data.map(d => ({ time: d.time, value: d.value })));
+        lineSeries.setData(chartData);
       } catch (e) {
       }
     };
@@ -87,7 +100,7 @@ export function AssetAllocationBar({ holdings, balance, totalKRW, usdKrw }) {
   const colors = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#84cc16','#ec4899'];
   
   (holdings || []).forEach((h, i) => {
-    const p = h.type === 'KRW' || h.avgPrice > 10000 ? h.avgPrice : h.avgPrice * usdKrw;
+    const p = h.priceKRW ?? (h.type === 'KRW' || h.avgPrice > 10000 ? h.avgPrice : h.avgPrice * usdKrw);
     items.push({ value: h.quantity * p, color: colors[i % 9] });
   });
 
@@ -111,11 +124,27 @@ export function ChartModal({ asset, onClose }) {
     const fetchAndDraw = async () => {
       setError('');
       try {
-        const res = await fetch(`/api/chart/${encodeURIComponent(asset.symbol)}?interval=${interval}&range=${period}`);
-        const data = await res.json();
-        
-        if (!res.ok) { setError(data.error || '차트 로딩 실패'); return; }
-        if (data.length === 0) { setError('데이터가 없습니다.'); return; }
+        let chartData = [];
+        if (asset.type === 'CRYPTO' || asset.symbol.endsWith('USDT')) {
+           const bInterval = interval === '1wk' ? '1w' : interval === '1mo' ? '1M' : '1d';
+           let limit = 30;
+           if (period === '3mo') limit = interval === '1wk' ? 12 : 90;
+           if (period === '1y') limit = interval === '1mo' ? 12 : 365;
+           if (period === 'ytd') limit = 365;
+           if (period === '5y') limit = 60;
+           
+           const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${asset.symbol}&interval=${bInterval}&limit=${limit}`);
+           const json = await res.json();
+           if (!res.ok) { setError('바이낸스 차트 로딩 실패'); return; }
+           chartData = json.map(k => ({ time: Math.floor(k[0]/1000), value: parseFloat(k[4]) }));
+        } else {
+           const res = await fetch(`/api/chart/${encodeURIComponent(asset.symbol)}?interval=${interval}&range=${period}`);
+           const data = await res.json();
+           if (!res.ok) { setError(data.error || '차트 로딩 실패'); return; }
+           chartData = data.map(d => ({ time: d.time, value: d.value }));
+        }
+
+        if (chartData.length === 0) { setError('데이터가 없습니다.'); return; }
 
         if (chartContainerRef.current) {
           chartContainerRef.current.innerHTML = '';
@@ -128,13 +157,13 @@ export function ChartModal({ asset, onClose }) {
           });
           
           lineSeries = chart.addAreaSeries({
-            lineColor: data[data.length-1].value >= data[0].value ? '#10b981' : '#ef4444',
-            topColor: data[data.length-1].value >= data[0].value ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)',
+            lineColor: chartData[chartData.length-1].value >= chartData[0].value ? '#10b981' : '#ef4444',
+            topColor: chartData[chartData.length-1].value >= chartData[0].value ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)',
             bottomColor: 'rgba(0, 0, 0, 0)',
             lineWidth: 2,
           });
           
-          lineSeries.setData(data.map(d => ({ time: d.time, value: d.value })));
+          lineSeries.setData(chartData);
           chart.timeScale().fitContent();
         }
       } catch (e) {
