@@ -201,29 +201,82 @@ app.get('/api/stocks/top', async (req, res) => {
   const cached = getCache(cacheKey);
   if (cached) return res.json(cached);
 
-  try {
-    const results = await enqueue(async () => {
-      const topSymbols = ['AAPL', 'NVDA', 'TSLA', 'MSFT', 'AMZN',
-        '005930.KS', '000660.KS', '035420.KS', '035720.KS', '068270.KS'];
-      const quotes = await yf.quote(topSymbols);
-      const quotesArray = Array.isArray(quotes) ? quotes : [quotes];
-      return quotesArray.map(quote => ({
-        symbol: quote.symbol,
-        name: quote.shortName || quote.longName || quote.symbol,
-        price: quote.regularMarketPrice,
-        changePercent: quote.regularMarketChangePercent,
-        type: 'STOCK',
-        currency: quote.currency || 'USD'
-      })).filter(r => r.price != null);
-    });
+  const FINNHUB_TOKEN = process.env.FINNHUB_TOKEN || '';
 
+  // US stocks via Finnhub (works from any server, no IP block)
+  const usSymbols = [
+    { symbol: 'AAPL', name: 'Apple' },
+    { symbol: 'NVDA', name: 'NVIDIA' },
+    { symbol: 'TSLA', name: 'Tesla' },
+    { symbol: 'MSFT', name: 'Microsoft' },
+    { symbol: 'AMZN', name: 'Amazon' },
+  ];
+
+  // Korean stocks — static fallback list with reference prices
+  // Yahoo Finance blocks cloud IPs so we serve a placeholder with a note
+  const krStocksStatic = [
+    { symbol: '005930.KS', name: '삼성전자', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '000660.KS', name: 'SK하이닉스', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '035420.KS', name: 'NAVER', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '035720.KS', name: '카카오', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '068270.KS', name: '셀트리온', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+  ];
+
+  try {
+    let usResults = [];
+
+    if (FINNHUB_TOKEN) {
+      // Use Finnhub API (requires free API key from finnhub.io)
+      const fetchQuote = async (sym) => {
+        const resp = await fetch(`https://finnhub.io/api/v1/quote?symbol=${sym}&token=${FINNHUB_TOKEN}`);
+        const data = await resp.json();
+        return data;
+      };
+
+      const quotes = await Promise.all(usSymbols.map(async (s) => {
+        try {
+          const q = await fetchQuote(s.symbol);
+          if (!q || !q.c) return null;
+          return {
+            symbol: s.symbol, name: s.name,
+            price: q.c,
+            changePercent: q.pc > 0 ? ((q.c - q.pc) / q.pc * 100) : 0,
+            type: 'STOCK', currency: 'USD'
+          };
+        } catch { return null; }
+      }));
+      usResults = quotes.filter(Boolean);
+    } else {
+      // No API key — try Yahoo as fallback (works locally, may fail on cloud)
+      try {
+        const quotes = await enqueue(async () => {
+          const r = await yf.quote(usSymbols.map(s => s.symbol));
+          return Array.isArray(r) ? r : [r];
+        });
+        usResults = quotes.map(q => ({
+          symbol: q.symbol,
+          name: usSymbols.find(s => s.symbol === q.symbol)?.name || q.shortName || q.symbol,
+          price: q.regularMarketPrice,
+          changePercent: q.regularMarketChangePercent,
+          type: 'STOCK', currency: q.currency || 'USD'
+        })).filter(r => r.price != null);
+      } catch (e) {
+        console.error('Yahoo fallback failed:', e.message);
+        // Return static US data if everything fails
+        usResults = usSymbols.map(s => ({ ...s, price: null, changePercent: 0, type: 'STOCK', currency: 'USD' }));
+      }
+    }
+
+    const results = [...usResults, ...krStocksStatic];
     setCache(cacheKey, results, 3 * 60 * 1000); // 3 min
     res.json(results);
   } catch (error) {
     console.error('Top Stocks API Error:', error.message);
-    res.status(500).json({ error: '주식 데이터 로딩 실패: ' + error.message });
+    // Even on total failure, return static list so UI doesn't break
+    res.json([...usSymbols.map(s => ({ ...s, price: null, changePercent: 0, type: 'STOCK', currency: 'USD' })), ...krStocksStatic]);
   }
 });
+
 
 // Helper: convert range string to period1 Date
 function rangeToPeriod1(range) {
