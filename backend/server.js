@@ -545,6 +545,30 @@ app.get('/api/portfolio', authenticateToken, (req, res) => {
 });
 
 // Transaction history for portfolio chart
+app.get('/api/portfolio/history', authenticateToken, (req, res) => {
+  db.all(
+    'SELECT total_asset_krw as value, timestamp as time FROM balance_history WHERE user_id = ? ORDER BY timestamp ASC',
+    [req.user.userId],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: '데이터베이스 오류' });
+      res.json(rows.map(r => ({
+        time: Math.floor(new Date(r.time).getTime() / 1000),
+        value: r.value
+      })));
+    }
+  );
+});
+
+app.post('/api/portfolio/history', authenticateToken, (req, res) => {
+  const { total_asset_krw } = req.body;
+  if (total_asset_krw == null) return res.status(400).json({ error: 'Missing total_asset_krw' });
+  db.run('INSERT INTO balance_history (user_id, total_asset_krw) VALUES (?, ?)', [req.user.userId, total_asset_krw], (err) => {
+    if (err) return res.status(500).json({ error: '데이터베이스 오류' });
+    res.json({ success: true });
+  });
+});
+
+// Transaction history for portfolio list
 app.get('/api/transactions', authenticateToken, (req, res) => {
   db.all(
     'SELECT * FROM transactions WHERE user_id = ? ORDER BY timestamp ASC',

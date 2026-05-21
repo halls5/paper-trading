@@ -219,3 +219,35 @@ export function ChartModal({ asset, onClose }) {
     </div>
   );
 }
+
+export function PortfolioHistoryChart({ data }) {
+  const chartContainerRef = useRef();
+
+  useEffect(() => {
+    if (!data || data.length === 0) return;
+    if (chartContainerRef.current) {
+      chartContainerRef.current.innerHTML = '';
+      const chart = createChart(chartContainerRef.current, {
+        width: chartContainerRef.current.clientWidth, height: 250,
+        layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#9ca3af' },
+        grid: { vertLines: { color: 'rgba(255, 255, 255, 0.05)' }, horzLines: { color: 'rgba(255, 255, 255, 0.05)' } },
+        timeScale: { timeVisible: true, secondsVisible: false, borderColor: 'rgba(255,255,255,0.1)' },
+        rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)' }
+      });
+      
+      const lineSeries = chart.addSeries(AreaSeries, {
+        lineColor: '#3b82f6',
+        topColor: 'rgba(59, 130, 246, 0.4)',
+        bottomColor: 'rgba(59, 130, 246, 0)',
+        lineWidth: 2,
+      });
+      
+      lineSeries.setData(data);
+      chart.timeScale().fitContent();
+
+      return () => chart.remove();
+    }
+  }, [data]);
+
+  return <div ref={chartContainerRef} style={{ width: '100%', height: 250 }} />;
+}

@@ -39,6 +39,12 @@ if (DATABASE_URL) {
       fee REAL DEFAULT 0,
       timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS balance_history (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id),
+      total_asset_krw REAL NOT NULL,
+      timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
     UPDATE portfolios SET asset_symbol = 'POLUSDT' WHERE asset_symbol IN ('MATICUSDT', 'MATIC-USD');
     UPDATE transactions SET asset_symbol = 'POLUSDT' WHERE asset_symbol IN ('MATICUSDT', 'MATIC-USD');
   `;
@@ -135,6 +141,13 @@ if (DATABASE_URL) {
           price REAL NOT NULL,
           total_amount REAL NOT NULL,
           fee REAL DEFAULT 0,
+          timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users (id)
+        )`);
+        db.run(`CREATE TABLE IF NOT EXISTS balance_history (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          total_asset_krw REAL NOT NULL,
           timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (user_id) REFERENCES users (id)
         )`);

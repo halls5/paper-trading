@@ -10,6 +10,24 @@
   --success-color: #10b981;
   --danger-color: #ef4444;
   --border-color: rgba(255, 255, 255, 0.08);
+  --glass-header-bg: rgba(15, 17, 26, 0.8);
+  --row-bg: rgba(0, 0, 0, 0.2);
+  --input-bg: rgba(0, 0, 0, 0.25);
+  --btn-bg: rgba(255, 255, 255, 0.08);
+  --btn-hover: rgba(255, 255, 255, 0.15);
+}
+
+[data-theme='light'] {
+  --bg-dark: #f0f4f8;
+  --bg-card: rgba(255, 255, 255, 0.75);
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --border-color: rgba(0, 0, 0, 0.06);
+  --glass-header-bg: rgba(255, 255, 255, 0.85);
+  --row-bg: rgba(255, 255, 255, 0.6);
+  --input-bg: rgba(255, 255, 255, 0.8);
+  --btn-bg: rgba(0, 0, 0, 0.05);
+  --btn-hover: rgba(0, 0, 0, 0.1);
 }
 
 * {
@@ -23,11 +41,11 @@ body {
   background-color: var(--bg-dark);
   color: var(--text-primary);
   min-height: 100vh;
-  /* Premium radial gradient background */
   background: radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.12), transparent 25%),
               radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.08), transparent 25%);
   background-color: var(--bg-dark);
   overflow-x: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* Glassmorphism utility classes */
@@ -42,7 +60,7 @@ body {
 }
 
 .glass-header {
-  background: rgba(15, 17, 26, 0.8);
+  background: var(--glass-header-bg);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border-color);
