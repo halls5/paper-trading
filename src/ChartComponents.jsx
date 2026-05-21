@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { createChart } from 'lightweight-charts';
+import { createChart, LineSeries, AreaSeries } from 'lightweight-charts';
 
 export function MiniChart({ symbol, type, currency }) {
   const chartContainerRef = useRef();
@@ -36,7 +36,7 @@ export function MiniChart({ symbol, type, currency }) {
           handleScroll: false, handleScale: false, crosshair: { mode: 0 }
         });
 
-        const lineSeries = chart.addLineSeries({
+        const lineSeries = chart.addSeries(LineSeries, {
           color: chartData[chartData.length - 1].value >= chartData[0].value ? '#10b981' : '#ef4444',
           lineWidth: 2, crosshairMarkerVisible: false, priceLineVisible: false, lastValueVisible: false
         });
@@ -162,7 +162,7 @@ export function ChartModal({ asset, onClose }) {
             rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)' }
           });
           
-          lineSeries = chart.addAreaSeries({
+          lineSeries = chart.addSeries(AreaSeries, {
             lineColor: chartData[chartData.length-1].value >= chartData[0].value ? '#10b981' : '#ef4444',
             topColor: chartData[chartData.length-1].value >= chartData[0].value ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)',
             bottomColor: 'rgba(0, 0, 0, 0)',
