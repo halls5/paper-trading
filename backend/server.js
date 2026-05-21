@@ -3,10 +3,14 @@ const cors = require('cors');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const db = require('./db');
+const path = require('path');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Serve static frontend files in production
+app.use(express.static(path.join(__dirname, '../dist')));
 
 // ✅ yahoo-finance2 v3 correct import
 const YahooFinance = require('yahoo-finance2').default;
