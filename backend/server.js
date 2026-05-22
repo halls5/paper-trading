@@ -767,5 +767,34 @@ app.post('/api/trade', authenticateToken, async (req, res) => {
     res.status(500).json({ error: '거래 처리 실패: ' + err.message });
   }
 });
+// ─── Admin / Debugging ──────────────────────────────────────────────────────────
+app.post('/api/admin/reset', async (req, res) => {
+  const { nickname } = req.body;
+  if (!nickname) return res.status(400).json({ error: '닉네임을 입력하세요.' });
+
+  try {
+    db.get('SELECT id FROM users WHERE nickname = ?', [nickname], async (err, user) => {
+      if (err) return res.status(500).json({ error: '데이터베이스 오류' });
+      if (!user) return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+
+      const userId = user.id;
+      let tx;
+      try {
+        tx = await db.beginTransaction();
+        await tx.run('UPDATE users SET balance = 100000000 WHERE id = ?', [userId]);
+        await tx.run('DELETE FROM portfolios WHERE user_id = ?', [userId]);
+        await tx.run('DELETE FROM transactions WHERE user_id = ?', [userId]);
+        await tx.run('DELETE FROM balance_history WHERE user_id = ?', [userId]);
+        await tx.commit();
+        res.json({ message: `${nickname}님의 계정이 1억 원으로 초기화되었습니다.` });
+      } catch (txErr) {
+        if (tx) { try { await tx.rollback(); } catch (_) {} }
+        res.status(500).json({ error: '초기화 실패: ' + txErr.message });
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: '서버 오류' });
+  }
+});
 
 app.listen(PORT, () => console.log(`✅ Server running on http://localhost:${PORT}`));
