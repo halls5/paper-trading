@@ -712,13 +712,21 @@ export default function App() {
                 <PieChart data={pieData} />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '1rem' }}>
                   {portfolioWithValues.sort((a, b) => b.valueKRW - a.valueKRW).map(p => (
-                    <div key={p.asset_symbol} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0.8rem', background: 'var(--row-bg)', borderRadius: '8px' }}>
-                      <div style={{ cursor: 'pointer' }} onClick={() => setChartAsset({
-                        symbol: p.asset_symbol,
-                        name: p.asset_name || p.asset_symbol,
-                        type: p.asset_type,
-                        currency: p.currency
-                      })}>
+                    <div key={p.asset_symbol}
+                      onClick={() => {
+                        setTradingAsset({
+                          symbol: p.asset_symbol,
+                          name: p.asset_name || p.asset_symbol,
+                          type: p.asset_type,
+                          currency: p.currency,
+                          price: p.currentPrice,
+                        });
+                        setTradeType('BUY');
+                        setQty('');
+                        setTradeErr('');
+                      }}
+                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0.8rem', background: 'var(--row-bg)', borderRadius: '8px', cursor: 'pointer' }}>
+                      <div>
                         <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{p.asset_name || p.asset_symbol}</div>
                         <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{p.asset_symbol} · {p.quantity.toLocaleString(undefined, { maximumFractionDigits: 6 })}개 · 평균 {fmtPrice(p.average_price, p.currency)}</div>
                       </div>
