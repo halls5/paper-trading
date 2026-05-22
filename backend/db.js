@@ -25,8 +25,10 @@ if (DATABASE_URL) {
       asset_type TEXT NOT NULL,
       quantity REAL NOT NULL,
       average_price REAL NOT NULL,
+      asset_name TEXT,
       UNIQUE(user_id, asset_symbol)
     );
+    ALTER TABLE portfolios ADD COLUMN IF NOT EXISTS asset_name TEXT;
     CREATE TABLE IF NOT EXISTS transactions (
       id SERIAL PRIMARY KEY,
       user_id INTEGER NOT NULL REFERENCES users(id),
@@ -128,9 +130,12 @@ if (DATABASE_URL) {
           asset_type TEXT NOT NULL,
           quantity REAL NOT NULL,
           average_price REAL NOT NULL,
+          asset_name TEXT,
           FOREIGN KEY (user_id) REFERENCES users (id),
           UNIQUE(user_id, asset_symbol)
         )`);
+        // 기존 DB에 asset_name 컬럼이 없으면 추가 (SQLite는 IF NOT EXISTS 미지원 → 에러는 무시)
+        db.run(`ALTER TABLE portfolios ADD COLUMN asset_name TEXT`, [], () => {});
         db.run(`CREATE TABLE IF NOT EXISTS transactions (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           user_id INTEGER NOT NULL,

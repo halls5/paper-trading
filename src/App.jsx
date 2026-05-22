@@ -287,7 +287,7 @@ export default function App() {
       const res = await fetch('/api/trade', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tk}` },
-        body: JSON.stringify({ asset_symbol: tradingAsset.symbol, asset_type: tradingAsset.type, type: tradeType, quantity: q, price: tradingAsset.price }),
+        body: JSON.stringify({ asset_symbol: tradingAsset.symbol, asset_type: tradingAsset.type, type: tradeType, quantity: q, price: tradingAsset.price, asset_name: tradingAsset.name }),
       });
       const data = await res.json();
       if (!res.ok) return setTradeErr(data.error);
@@ -728,7 +728,7 @@ export default function App() {
                       style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0.8rem', background: 'var(--row-bg)', borderRadius: '8px', cursor: 'pointer' }}>
                       <div>
                         <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{p.asset_name || p.asset_symbol}</div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{p.asset_symbol} · {p.quantity.toLocaleString(undefined, { maximumFractionDigits: 6 })}개 · 평균 {fmtPrice(p.average_price, p.currency)}</div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{p.quantity.toLocaleString(undefined, { maximumFractionDigits: 6 })}개 · 평균 {fmtPrice(p.average_price, p.currency)}</div>
                       </div>
                       <div style={{ textAlign: 'right' }}>
                         <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{fmtPrice(p.currentPrice, p.currency)}</div>
