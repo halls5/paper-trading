@@ -716,7 +716,7 @@ app.get('/api/transactions', authenticateToken, (req, res) => {
 
 // Execute Trade (BUY/SELL) — uses unified db.beginTransaction()
 app.post('/api/trade', authenticateToken, async (req, res) => {
-  const { asset_symbol, asset_type, type, quantity, price } = req.body;
+  const { asset_symbol, asset_type, type, quantity, price, asset_name } = req.body;
   const userId = req.user.userId;
 
   const isKRW = asset_symbol.endsWith('.KS') || asset_symbol.endsWith('.KQ');
@@ -764,10 +764,11 @@ app.post('/api/trade', authenticateToken, async (req, res) => {
       if (portfolio) {
         const newQty = portfolio.quantity + quantity;
         const newAvg = ((portfolio.quantity * portfolio.average_price) + totalAmountAssetCurrency) / newQty;
-        await tx.run('UPDATE portfolios SET quantity = ?, average_price = ? WHERE id = ?', [newQty, newAvg, portfolio.id]);
+        // asset_name이 기존에 없었다면 이번 매수 시점에서 채워줌
+        await tx.run('UPDATE portfolios SET quantity = ?, average_price = ?, asset_name = COALESCE(asset_name, ?) WHERE id = ?', [newQty, newAvg, asset_name || null, portfolio.id]);
       } else {
-        await tx.run('INSERT INTO portfolios (user_id, asset_symbol, asset_type, quantity, average_price) VALUES (?, ?, ?, ?, ?)',
-          [userId, asset_symbol, asset_type, quantity, price]);
+        await tx.run('INSERT INTO portfolios (user_id, asset_symbol, asset_type, quantity, average_price, asset_name) VALUES (?, ?, ?, ?, ?, ?)',
+          [userId, asset_symbol, asset_type, quantity, price, asset_name || null]);
       }
     } else {
       const amountToAdd = totalAmountKRW - feeKRW;
