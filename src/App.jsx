@@ -401,7 +401,7 @@ export default function App() {
       };
     }).sort((a, b) => b.totalAsset - a.totalAsset)
       .map((r, i) => ({ ...r, rank: i + 1 }));
-  }, [ranking, liveData, stockData]);
+  }, [ranking, liveData, stockData, etfData]);
 
   const RankingView = () => {
     const myNickname = user?.nickname;
