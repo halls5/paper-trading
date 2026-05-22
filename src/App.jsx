@@ -195,6 +195,14 @@ export default function App() {
     } catch (e) { console.error('Failed to fetch etfs', e); }
   };
 
+  const fetchRanking = async () => {
+    try {
+      const res = await fetch('/api/ranking');
+      if (res.ok) setRanking(await res.json());
+    } catch (e) { console.error('Failed to fetch ranking', e); }
+  };
+
+
   const fetchPortfolio = async (tok) => {
     try {
       const res = await fetch('/api/portfolio', { headers: { Authorization: `Bearer ${tok}` } });
