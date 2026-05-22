@@ -186,12 +186,12 @@ app.get('/api/search', async (req, res) => {
     }
   }
 
-  // Fallback for Korean searches: search the loaded krx.json
-  const isKorean = /[가-힣]/.test(q);
-  if (isKorean && krxStocks.length > 0) {
+  // Search KRX stocks (case-insensitive)
+  if (krxStocks.length > 0) {
     try {
+      const qLower = q.toLowerCase();
       // Find up to 5 matching stocks
-      const matches = krxStocks.filter(s => s.name.includes(q)).slice(0, 5);
+      const matches = krxStocks.filter(s => s.name.toLowerCase().includes(qLower) || s.symbol.includes(qLower)).slice(0, 5);
       if (matches.length > 0) {
         const codes = matches.map(s => s.symbol.split('.')[0]).join(',');
         const naverUrl = `https://polling.finance.naver.com/api/realtime?query=SERVICE_ITEM:${codes}`;
@@ -231,7 +231,7 @@ app.get('/api/search', async (req, res) => {
       try {
         const fUrl = `https://finnhub.io/api/v1/search?q=${encodeURIComponent(q)}&token=${process.env.FINNHUB_TOKEN}`;
         const searchRes = await fetch(fUrl).then(r => r.json());
-        const symbols = (searchRes.result || []).filter(r => r.type === 'Common Stock' || r.type === '').slice(0, 5).map(r => r.symbol);
+        const symbols = (searchRes.result || []).filter(r => r.type === 'Common Stock' || r.type === '' || r.type === 'ETP' || r.type === 'ETF').slice(0, 5).map(r => r.symbol);
         
         const fetchQuote = async (sym) => {
           const resp = await fetch(`https://finnhub.io/api/v1/quote?symbol=${sym}&token=${process.env.FINNHUB_TOKEN}`);
