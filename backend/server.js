@@ -803,11 +803,19 @@ app.post('/api/portfolio/history', authenticateToken, (req, res) => {
 // Transaction history for portfolio list
 app.get('/api/transactions', authenticateToken, (req, res) => {
   db.all(
-    'SELECT * FROM transactions WHERE user_id = ? ORDER BY timestamp ASC',
+    'SELECT * FROM transactions WHERE user_id = ? ORDER BY timestamp DESC',
     [req.user.userId],
     (err, rows) => {
       if (err) return res.status(500).json({ error: '데이터베이스 오류' });
-      res.json(rows);
+      const enriched = rows.map(row => {
+        let name = row.asset_symbol;
+        const sym = row.asset_symbol;
+        if (krxNameMap[sym]) name = krxNameMap[sym];
+        else if (KR_NAMES && KR_NAMES[sym]) name = KR_NAMES[sym];
+        else if (row.asset_type === 'CRYPTO') name = sym.replace('USDT', '');
+        return { ...row, asset_name: name };
+      });
+      res.json(enriched);
     }
   );
 });

@@ -490,7 +490,7 @@ export default function App() {
                     <span style={{ color: h.type === 'BUY' ? 'var(--danger-color)' : 'var(--success-color)', fontSize: '0.8rem', padding: '2px 6px', background: 'var(--btn-bg)', borderRadius: '4px' }}>
                       {h.type === 'BUY' ? '매수' : '매도'}
                     </span>
-                    {h.asset_symbol}
+                    {h.asset_name || h.asset_symbol}
                   </div>
                   <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '0.3rem' }}>
                     {new Date(h.timestamp).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
