@@ -278,7 +278,10 @@ export default function App() {
     setTradeErr('');
     const q = parseFloat(qty);
     if (!q || q <= 0) return setTradeErr('수량을 입력해주세요.');
-    if (!tradingAsset?.price) return setTradeErr('가격 정보가 없습니다.');
+    if (!tradingAsset || !tradingAsset.price || tradingAsset.price <= 0) {
+      setTradeErr('현재가를 가져올 수 없어 거래가 불가능합니다.');
+      return;
+    }
     const tk = token();
     try {
       const res = await fetch('/api/trade', {
@@ -313,7 +316,8 @@ export default function App() {
     const stock = stockData.find(s => s.symbol === p.asset_symbol);
     // current_price from backend (KR stocks fetched via Naver) > liveData (crypto) > stockData (top10) > fallback
     const currentPrice = p.current_price ?? live?.price ?? stock?.price ?? p.average_price;
-    const currency = live?.currency ?? stock?.currency ?? guessCurrency(p.asset_symbol, p.asset_type === 'CRYPTO' ? 'USD' : 'KRW');
+    // .KS, .KQ로 안끝나면 무조건 USD (미국 주식 혹은 코인)
+    const currency = live?.currency ?? stock?.currency ?? ((p.asset_symbol.endsWith('.KS') || p.asset_symbol.endsWith('.KQ')) ? 'KRW' : 'USD');
     const valueKRW = p.quantity * toKRW(currentPrice, currency);
     const costKRW = p.quantity * toKRW(p.average_price, currency);
     const pnlKRW = valueKRW - costKRW;
@@ -478,8 +482,9 @@ export default function App() {
 
   const renderTradeModal = () => {
     if (!tradingAsset) return null;
+    const price = tradingAsset.price || 0; // null 방지
     const q = parseFloat(qty) || 0;
-    const total = q * tradingAsset.price;
+    const total = q * price;
     const curr = tradingAsset.currency;
     const totalKRW = curr === 'KRW' ? total : total * USD_TO_KRW;
 
@@ -497,9 +502,9 @@ export default function App() {
     const feeKRW = Math.round(totalKRW * feeRate);
     const totalWithFeeKRW = tradeType === 'BUY' ? totalKRW + feeKRW : totalKRW - feeKRW;
 
-    const maxAffordable = curr === 'KRW'
-      ? Math.floor(user.balance / (tradingAsset.price * (1 + feeRate)))
-      : Math.floor((user.balance / USD_TO_KRW) / (tradingAsset.price * (1 + feeRate)) * 10000) / 10000;
+    const maxAffordable = (price > 0) ? (curr === 'KRW'
+      ? Math.floor(user.balance / (price * (1 + feeRate)))
+      : Math.floor((user.balance / USD_TO_KRW) / (price * (1 + feeRate)) * 10000) / 10000) : 0;
     const holding = portfolio.find(p => p.asset_symbol === tradingAsset.symbol);
 
     return (
@@ -518,7 +523,7 @@ export default function App() {
           <div style={{ background: 'var(--row-bg)', borderRadius: '8px', padding: '0.8rem', marginBottom: '1rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
               <span style={{ color: 'var(--text-secondary)' }}>현재가</span>
-              <strong>{fmtPrice(tradingAsset.price, curr)}</strong>
+              <strong>{price > 0 ? fmtPrice(price, curr) : '로딩중/지원불가'}</strong>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.83rem' }}>
               <span style={{ color: 'var(--text-secondary)' }}>{tradeType === 'BUY' ? '매수 가능' : '보유 수량'}</span>
@@ -539,9 +544,10 @@ export default function App() {
                     <button key={ratio} type="button" className="btn"
                       style={{ padding: '2px 7px', fontSize: '0.72rem', background: 'var(--btn-bg)', color: 'var(--text-secondary)' }}
                       onClick={() => {
+                        if (price <= 0) return;
                         const max = curr === 'KRW'
-                          ? Math.floor(user.balance * ratio / (tradingAsset.price * (1 + feeRate)))
-                          : Math.floor((user.balance / USD_TO_KRW) * ratio / (tradingAsset.price * (1 + feeRate)) * 10000) / 10000;
+                          ? Math.floor(user.balance * ratio / (price * (1 + feeRate)))
+                          : Math.floor((user.balance / USD_TO_KRW) * ratio / (price * (1 + feeRate)) * 10000) / 10000;
                         setQty(String(max));
                       }}>
                       {ratio === 1.0 ? '최대' : `${ratio * 100}%`}
