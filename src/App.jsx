@@ -112,7 +112,9 @@ export default function App() {
   /* ── Market ── */
   const [liveData, setLiveData] = useState({});
   const [stockData, setStockData] = useState([]);
+  const [etfData, setEtfData] = useState([]);
   const [activeTab, setActiveTab] = useState('CRYPTO');
+  const [activeTopTab, setActiveTopTab] = useState('CRYPTO');
 
   /* ── Search ── */
   const [query, setQuery] = useState('');
@@ -145,6 +147,7 @@ export default function App() {
       setUser(JSON.parse(stored));
       fetchPortfolio(token);
       fetchStocks();
+      fetchEtfs();
       fetchRanking();
       fetchHistory(token);
       fetch('/api/users/me', { headers: { Authorization: `Bearer ${token}` } })
@@ -154,22 +157,43 @@ export default function App() {
     }
   }, []);
 
-  /* ── Binance WebSocket ── */
+  /* ── WebSocket for Crypto live data ── */
   useEffect(() => {
-    if (!user) return;
-    const streams = TOP_10_CRYPTO.map(s => `${s.toLowerCase()}@ticker`).join('/');
-    const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${streams}`);
-    ws.onmessage = (e) => {
-      const d = JSON.parse(e.data);
-      setLiveData(prev => ({
-        ...prev,
-        [d.s]: { symbol: d.s, name: d.s.replace('USDT', ''), price: parseFloat(d.c), changePercent: parseFloat(d.P), type: 'CRYPTO', currency: 'USD' }
+    const ws = new WebSocket('wss://stream.binance.com:9443/ws');
+    ws.onopen = () => {
+      ws.send(JSON.stringify({
+        method: 'SUBSCRIBE',
+        params: TOP_10_CRYPTO.map(s => `${s.toLowerCase()}@ticker`),
+        id: 1
       }));
     };
+    ws.onmessage = (e) => {
+      const d = JSON.parse(e.data);
+      if (d.e === '24hrTicker') {
+        setLiveData(prev => ({
+          ...prev,
+          [d.s]: { symbol: d.s, name: d.s.replace('USDT', ''), price: parseFloat(d.c), changePercent: parseFloat(d.P), type: 'CRYPTO', currency: 'USD' }
+        }));
+      }
+    };
     return () => ws.close();
-  }, [user]);
+  }, []);
 
   const token = () => localStorage.getItem('token');
+
+  const fetchStocks = async () => {
+    try {
+      const res = await fetch('/api/stocks/top');
+      if (res.ok) setStockData(await res.json());
+    } catch (e) { console.error('Failed to fetch stocks', e); }
+  };
+
+  const fetchEtfs = async () => {
+    try {
+      const res = await fetch('/api/etfs/top');
+      if (res.ok) setEtfData(await res.json());
+    } catch (e) { console.error('Failed to fetch etfs', e); }
+  };
 
   const fetchPortfolio = async (tok) => {
     try {
@@ -210,20 +234,6 @@ export default function App() {
         await fetchPortfolioHistory(tk);
       }
     } catch (_) {}
-  };
-
-  const fetchStocks = async () => {
-    try {
-      const res = await fetch('/api/stocks/top');
-      if (res.ok) setStockData(await res.json());
-    } catch (e) { console.error(e); }
-  };
-
-  const fetchRanking = async () => {
-    try {
-      const res = await fetch('/api/ranking');
-      if (res.ok) setRanking(await res.json());
-    } catch (e) { console.error(e); }
   };
 
   const handleSearch = async (e) => {
@@ -313,7 +323,7 @@ export default function App() {
 
   const portfolioWithValues = portfolio.filter(p => p.quantity > 0).map(p => {
     const live = liveData[p.asset_symbol];
-    const stock = stockData.find(s => s.symbol === p.asset_symbol);
+    const stock = stockData.find(s => s.symbol === p.asset_symbol) || etfData.find(s => s.symbol === p.asset_symbol);
     // current_price from backend (KR stocks fetched via Naver) > liveData (crypto) > stockData (top10) > fallback
     const currentPrice = p.current_price ?? live?.price ?? stock?.price ?? p.average_price;
     // .KS, .KQ로 안끝나면 무조건 USD (미국 주식 혹은 코인)
@@ -357,7 +367,7 @@ export default function App() {
       let holdingsValueEst = 0;
       const computedHoldings = (r.holdings || []).map(h => {
         const live = liveData[h.symbol];
-        const stock = stockData.find(s => s.symbol === h.symbol);
+        const stock = stockData.find(s => s.symbol === h.symbol) || etfData.find(s => s.symbol === h.symbol);
         // h.current_price is fetched from Naver by backend for KR stocks
         const currentPrice = h.current_price ?? live?.price ?? stock?.price ?? h.avgPrice;
         // .KS/.KQ로 끝나면 KRW, 그 외(미국 주식·코인)는 USD
