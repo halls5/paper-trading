@@ -680,9 +680,22 @@ app.post('/api/trade', authenticateToken, async (req, res) => {
   const totalAmountAssetCurrency = quantity * price;
   const totalAmountKRW = isKRW ? totalAmountAssetCurrency : totalAmountAssetCurrency * USD_TO_KRW;
 
-  // 사용자 요청에 의해 수수료 0% 적용 (수수료 포함 X)
-  const feeRate = 0;
-  const feeKRW = 0;
+  /**
+   * 실제 수수료 구조 (2025년 기준)
+   * - 국내주식 매수: 위탁수수료 0.015%
+   * - 국내주식 매도: 위탁수수료 0.015% + 증권거래세 0.20% = 0.215%
+   * - 해외주식:     위탁수수료 0.25% (매수/매도 동일)
+   * - 코인:         Binance 기준 0.1% (매수/매도 동일)
+   */
+  let feeRate;
+  if (asset_type === 'CRYPTO') {
+    feeRate = 0.001; // 0.1%
+  } else if (isKRW) {
+    feeRate = type === 'BUY' ? 0.00015 : 0.00215; // 매수 0.015%, 매도 0.215%
+  } else {
+    feeRate = 0.0025; // 해외주식 0.25%
+  }
+  const feeKRW = Math.round(totalAmountKRW * feeRate);
 
   if (!['BUY', 'SELL'].includes(type))
     return res.status(400).json({ error: '잘못된 거래 유형입니다.' });
@@ -729,8 +742,15 @@ app.post('/api/trade', authenticateToken, async (req, res) => {
     );
     await tx.commit();
 
+    // 수수료 내역 메시지 구성
+    const feeTypeLabel = asset_type === 'CRYPTO'
+      ? '코인 거래수수료 0.1%'
+      : isKRW
+        ? (type === 'BUY' ? '위탁수수료 0.015%' : '위탁수수료 0.015% + 증권거래세 0.20%')
+        : '해외주식 수수료 0.25%';
+
     res.json({
-      message: `${asset_symbol} ${type === 'BUY' ? '매수' : '매도'} 체결! (수수료: ₩${feeKRW.toLocaleString('ko-KR', { maximumFractionDigits: 0 })})`,
+      message: `${asset_symbol} ${type === 'BUY' ? '매수' : '매도'} 체결!\n수수료: ₩${feeKRW.toLocaleString('ko-KR')} (${feeTypeLabel})`,
       totalAmount: totalAmountKRW, type, fee: feeKRW
     });
   } catch (err) {

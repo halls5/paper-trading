@@ -481,9 +481,25 @@ export default function App() {
     const q = parseFloat(qty) || 0;
     const total = q * tradingAsset.price;
     const curr = tradingAsset.currency;
+    const totalKRW = curr === 'KRW' ? total : total * USD_TO_KRW;
+
+    // 실제 수수료 계산 (백엔드와 동일한 로직)
+    const isKRSymbol = tradingAsset.symbol?.endsWith('.KS') || tradingAsset.symbol?.endsWith('.KQ');
+    let feeRate, feeLabel;
+    if (tradingAsset.type === 'CRYPTO') {
+      feeRate = 0.001; feeLabel = '코인 0.1%';
+    } else if (isKRSymbol) {
+      if (tradeType === 'BUY') { feeRate = 0.00015; feeLabel = '위탁수수료 0.015%'; }
+      else { feeRate = 0.00215; feeLabel = '수수료 0.015% + 거래세 0.20%'; }
+    } else {
+      feeRate = 0.0025; feeLabel = '해외주식 0.25%';
+    }
+    const feeKRW = Math.round(totalKRW * feeRate);
+    const totalWithFeeKRW = tradeType === 'BUY' ? totalKRW + feeKRW : totalKRW - feeKRW;
+
     const maxAffordable = curr === 'KRW'
-      ? Math.floor(user.balance / tradingAsset.price)
-      : Math.floor((user.balance / USD_TO_KRW) / tradingAsset.price * 10000) / 10000;
+      ? Math.floor(user.balance / (tradingAsset.price * (1 + feeRate)))
+      : Math.floor((user.balance / USD_TO_KRW) / (tradingAsset.price * (1 + feeRate)) * 10000) / 10000;
     const holding = portfolio.find(p => p.asset_symbol === tradingAsset.symbol);
 
     return (
@@ -524,8 +540,8 @@ export default function App() {
                       style={{ padding: '2px 7px', fontSize: '0.72rem', background: 'var(--btn-bg)', color: 'var(--text-secondary)' }}
                       onClick={() => {
                         const max = curr === 'KRW'
-                          ? Math.floor(user.balance * ratio / tradingAsset.price)
-                          : Math.floor((user.balance / USD_TO_KRW) * ratio / tradingAsset.price * 10000) / 10000;
+                          ? Math.floor(user.balance * ratio / (tradingAsset.price * (1 + feeRate)))
+                          : Math.floor((user.balance / USD_TO_KRW) * ratio / (tradingAsset.price * (1 + feeRate)) * 10000) / 10000;
                         setQty(String(max));
                       }}>
                       {ratio === 1.0 ? '최대' : `${ratio * 100}%`}
@@ -542,13 +558,28 @@ export default function App() {
                 placeholder={tradingAsset.type === 'CRYPTO' ? '예: 0.001' : '예: 1'}
                 style={{ width: '100%', padding: '11px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--row-bg)', color: 'white', fontSize: '1rem', boxSizing: 'border-box' }} />
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', fontSize: '0.88rem', background: 'var(--row-bg)', padding: '0.7rem', borderRadius: '8px' }}>
-              <span>총 주문금액</span>
-              <strong style={{ color: 'white' }}>
-                {curr === 'KRW' ? fmtBalance(total) : `$${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                {curr !== 'KRW' && <span style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', marginLeft: '0.4rem' }}>(≈ {fmtBalance(total * USD_TO_KRW)})</span>}
-              </strong>
+
+            {/* 수수료 상세 */}
+            <div style={{ background: 'var(--row-bg)', borderRadius: '8px', padding: '0.7rem', fontSize: '0.84rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+                <span>주문금액</span>
+                <span style={{ color: 'white' }}>
+                  {curr === 'KRW' ? fmtBalance(total) : `$${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`}
+                  {curr !== 'KRW' && <span style={{ color: 'var(--text-secondary)', fontSize: '0.76rem', marginLeft: '0.3rem' }}>(≈ {fmtBalance(totalKRW)})</span>}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+                <span>수수료 <span style={{ fontSize: '0.72rem', opacity: 0.7 }}>({feeLabel})</span></span>
+                <span style={{ color: q > 0 ? 'var(--danger-color)' : 'var(--text-secondary)' }}>
+                  {q > 0 ? `${fmtBalance(feeKRW)}` : '-'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border-color)', paddingTop: '0.3rem', marginTop: '0.1rem' }}>
+                <span style={{ fontWeight: 600 }}>{tradeType === 'BUY' ? '실결제금액' : '실수령금액'}</span>
+                <strong style={{ color: 'white' }}>{q > 0 ? fmtBalance(totalWithFeeKRW) : '-'}</strong>
+              </div>
             </div>
+
             {tradeErr && <p style={{ color: 'var(--danger-color)', fontSize: '0.88rem', textAlign: 'center', margin: 0 }}>{tradeErr}</p>}
             <button type="submit" className={`btn ${tradeType === 'BUY' ? 'btn-success' : 'btn-danger'}`} style={{ padding: '12px', fontSize: '1rem' }}>
               {tradeType === 'BUY' ? '매수하기' : '매도하기'}
@@ -558,6 +589,7 @@ export default function App() {
       </div>
     );
   };
+
 
   if (!user) {
     return (
