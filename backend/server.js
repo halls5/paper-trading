@@ -571,12 +571,21 @@ app.get('/api/ranking', (req, res) => {
       db.all('SELECT asset_symbol, asset_type, quantity, average_price FROM portfolios WHERE user_id = ? AND quantity > 0',
         [user.id], (err2, rows) => {
           if (!err2 && rows) {
-            user.holdings = rows.map(r => ({
-              symbol: r.asset_symbol,
-              type: r.asset_type,
-              quantity: r.quantity,
-              avgPrice: r.average_price
-            }));
+            user.holdings = rows.map(r => {
+              let name = r.asset_symbol;
+              const sym = r.asset_symbol;
+              if (krxNameMap[sym]) name = krxNameMap[sym];
+              else if (KR_NAMES && KR_NAMES[sym]) name = KR_NAMES[sym];
+              else if (r.asset_type === 'CRYPTO') name = sym.replace('USDT', '');
+              
+              return {
+                symbol: r.asset_symbol,
+                name: name,
+                type: r.asset_type,
+                quantity: r.quantity,
+                avgPrice: r.average_price
+              };
+            });
           }
           pending--;
           if (pending === 0) res.json(users);

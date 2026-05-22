@@ -410,10 +410,10 @@ export default function App() {
                   <AssetAllocationBar holdings={r.holdings} balance={r.balance} totalKRW={r.totalAsset} usdKrw={USD_TO_KRW} />
                 )}
                 {(r.holdings?.length > 0 || r.balance > 0) && (() => {
-                  const items = [...(r.balance > 0 ? ['현금'] : []), ...(r.holdings || []).map(h => h.symbol)];
+                  const items = [...(r.balance > 0 ? ['현금'] : []), ...(r.holdings || []).map(h => h.name || h.symbol)];
                   return (
                     <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: 3 }}>
-                      {items.slice(0, 4).join(' · ')}{items.length > 4 ? ` +${items.length - 4}` : ''}
+                      {items.slice(0, 6).join(' · ')}{items.length > 6 ? ` +${items.length - 6}` : ''}
                     </div>
                   );
                 })()}
