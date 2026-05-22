@@ -358,8 +358,9 @@ export default function App() {
       const computedHoldings = (r.holdings || []).map(h => {
         const live = liveData[h.symbol];
         const stock = stockData.find(s => s.symbol === h.symbol);
-        const currentPrice = live?.price ?? stock?.price ?? h.avgPrice;
-        const currency = live?.currency ?? stock?.currency ?? guessCurrency(h.symbol, h.type === 'CRYPTO' ? 'USD' : 'KRW');
+        // h.current_price is fetched from Naver by backend for KR stocks
+        const currentPrice = h.current_price ?? live?.price ?? stock?.price ?? h.avgPrice;
+        const currency = live?.currency ?? stock?.currency ?? ((h.symbol.endsWith('.KS') || h.symbol.endsWith('.KQ')) ? 'KRW' : 'USD');
         const priceKRW = currency === 'KRW' ? currentPrice : currentPrice * USD_TO_KRW;
         holdingsValueEst += h.quantity * priceKRW;
         return { ...h, currentPrice, priceKRW };
