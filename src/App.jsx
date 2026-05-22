@@ -358,9 +358,9 @@ export default function App() {
       const computedHoldings = (r.holdings || []).map(h => {
         const live = liveData[h.symbol];
         const stock = stockData.find(s => s.symbol === h.symbol);
-        // h.current_price is fetched from Naver by backend for KR stocks
+        const currentPrice = live?.price ?? stock?.price ?? h.avgPrice;
+        // .KS/.KQ로 끝나면 KRW, 그 외(미국 주식·코인)는 USD
         const currentPrice = h.current_price ?? live?.price ?? stock?.price ?? h.avgPrice;
-        const currency = live?.currency ?? stock?.currency ?? ((h.symbol.endsWith('.KS') || h.symbol.endsWith('.KQ')) ? 'KRW' : 'USD');
         const priceKRW = currency === 'KRW' ? currentPrice : currentPrice * USD_TO_KRW;
         holdingsValueEst += h.quantity * priceKRW;
         return { ...h, currentPrice, priceKRW };
