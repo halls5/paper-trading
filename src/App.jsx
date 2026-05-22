@@ -359,7 +359,8 @@ export default function App() {
         const live = liveData[h.symbol];
         const stock = stockData.find(s => s.symbol === h.symbol);
         const currentPrice = live?.price ?? stock?.price ?? h.avgPrice;
-        const currency = live?.currency ?? stock?.currency ?? guessCurrency(h.symbol, h.type === 'CRYPTO' ? 'USD' : 'KRW');
+        // .KS/.KQ로 끝나면 KRW, 그 외(미국 주식·코인)는 USD
+        const currency = live?.currency ?? stock?.currency ?? guessCurrency(h.symbol);
         const priceKRW = currency === 'KRW' ? currentPrice : currentPrice * USD_TO_KRW;
         holdingsValueEst += h.quantity * priceKRW;
         return { ...h, currentPrice, priceKRW };
