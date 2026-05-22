@@ -591,9 +591,10 @@ app.get('/api/ranking', (req, res) => {
 const krxNameMap = {};
 krxStocks.forEach(s => { krxNameMap[s.symbol] = s.name; });
 
-app.get('/api/portfolio', authenticateToken, (req, res) => {
-  db.all('SELECT * FROM portfolios WHERE user_id = ? AND quantity > 0', [req.user.userId], (err, rows) => {
+app.get('/api/portfolio', authenticateToken, async (req, res) => {
+  db.all('SELECT * FROM portfolios WHERE user_id = ? AND quantity > 0', [req.user.userId], async (err, rows) => {
     if (err) return res.status(500).json({ error: '데이터베이스 오류' });
+
     // Enrich each row with asset_name
     const enriched = rows.map(row => {
       let name = row.asset_name || row.asset_symbol;
@@ -607,6 +608,28 @@ app.get('/api/portfolio', authenticateToken, (req, res) => {
       }
       return { ...row, asset_name: name };
     });
+
+    // Fetch current prices for KR stocks (.KS/.KQ) via Naver realtime API
+    const krRows = enriched.filter(r => r.asset_symbol.endsWith('.KS') || r.asset_symbol.endsWith('.KQ'));
+    if (krRows.length > 0) {
+      try {
+        const codes = krRows.map(r => r.asset_symbol.split('.')[0]).join(',');
+        const naverUrl = `https://polling.finance.naver.com/api/realtime?query=SERVICE_ITEM:${codes}`;
+        const naverRes = await fetch(naverUrl);
+        const naverJson = await naverRes.json();
+        const naverDatas = naverJson.result.areas[0].datas;
+        naverDatas.forEach(d => {
+          const row = enriched.find(r => r.asset_symbol.startsWith(d.cd + '.'));
+          if (row) {
+            row.current_price = d.nv;
+            row.change_percent = d.cr * (d.cv === 0 ? 0 : (d.nv >= d.pcv ? 1 : -1));
+          }
+        });
+      } catch (e) {
+        console.error('Portfolio KR price fetch failed:', e.message);
+      }
+    }
+
     res.json(enriched);
   });
 });

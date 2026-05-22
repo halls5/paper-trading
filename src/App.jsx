@@ -311,7 +311,8 @@ export default function App() {
   const portfolioWithValues = portfolio.filter(p => p.quantity > 0).map(p => {
     const live = liveData[p.asset_symbol];
     const stock = stockData.find(s => s.symbol === p.asset_symbol);
-    const currentPrice = live?.price ?? stock?.price ?? p.average_price;
+    // current_price from backend (KR stocks fetched via Naver) > liveData (crypto) > stockData (top10) > fallback
+    const currentPrice = p.current_price ?? live?.price ?? stock?.price ?? p.average_price;
     const currency = live?.currency ?? stock?.currency ?? guessCurrency(p.asset_symbol, p.asset_type === 'CRYPTO' ? 'USD' : 'KRW');
     const valueKRW = p.quantity * toKRW(currentPrice, currency);
     const costKRW = p.quantity * toKRW(p.average_price, currency);
