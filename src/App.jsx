@@ -339,7 +339,7 @@ export default function App() {
   const pieData = [
     ...(user?.balance > 0 ? [{ label: '현금', value: user.balance, color: '#6b7280' }] : []),
     ...portfolioWithValues.map((p, i) => ({
-      label: p.asset_symbol,
+      label: p.asset_name || p.asset_symbol,
       value: p.valueKRW,
       color: ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#84cc16','#ec4899'][i % 9]
     }))
@@ -673,9 +673,14 @@ export default function App() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '1rem' }}>
                   {portfolioWithValues.sort((a, b) => b.valueKRW - a.valueKRW).map(p => (
                     <div key={p.asset_symbol} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0.8rem', background: 'var(--row-bg)', borderRadius: '8px' }}>
-                      <div style={{ cursor: 'pointer' }} onClick={() => setChartAsset(p)}>
-                        <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{p.asset_symbol}</div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{p.quantity.toLocaleString(undefined, { maximumFractionDigits: 6 })}개 · 평균 {fmtPrice(p.average_price, p.currency)}</div>
+                      <div style={{ cursor: 'pointer' }} onClick={() => setChartAsset({
+                        symbol: p.asset_symbol,
+                        name: p.asset_name || p.asset_symbol,
+                        type: p.asset_type,
+                        currency: p.currency
+                      })}>
+                        <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{p.asset_name || p.asset_symbol}</div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{p.asset_symbol} · {p.quantity.toLocaleString(undefined, { maximumFractionDigits: 6 })}개 · 평균 {fmtPrice(p.average_price, p.currency)}</div>
                       </div>
                       <div style={{ textAlign: 'right' }}>
                         <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{fmtPrice(p.currentPrice, p.currency)}</div>

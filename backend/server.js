@@ -587,10 +587,27 @@ app.get('/api/ranking', (req, res) => {
 
 // ─── Portfolio & Trading ──────────────────────────────────────────────────────
 
+// Build a symbol→name map from krxStocks for fast lookups
+const krxNameMap = {};
+krxStocks.forEach(s => { krxNameMap[s.symbol] = s.name; });
+
 app.get('/api/portfolio', authenticateToken, (req, res) => {
   db.all('SELECT * FROM portfolios WHERE user_id = ? AND quantity > 0', [req.user.userId], (err, rows) => {
     if (err) return res.status(500).json({ error: '데이터베이스 오류' });
-    res.json(rows);
+    // Enrich each row with asset_name
+    const enriched = rows.map(row => {
+      let name = row.asset_name || row.asset_symbol;
+      const sym = row.asset_symbol;
+      if (krxNameMap[sym]) {
+        name = krxNameMap[sym];
+      } else if (KR_NAMES[sym]) {
+        name = KR_NAMES[sym];
+      } else if (row.asset_type === 'CRYPTO') {
+        name = sym.replace('USDT', '');
+      }
+      return { ...row, asset_name: name };
+    });
+    res.json(enriched);
   });
 });
 
