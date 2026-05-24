@@ -269,8 +269,32 @@ app.get('/api/search', async (req, res) => {
           if (validQuotes.length === 0) return [];
 
           const symbols = validQuotes.map(q => q.symbol);
-          const quotes = await yf.quote(symbols);
-          const quotesArray = Array.isArray(quotes) ? quotes : [quotes];
+          let quotesArray = [];
+          try {
+            const quotes = await yf.quote(symbols);
+            quotesArray = Array.isArray(quotes) ? quotes : [quotes];
+          } catch (qErr) {
+            console.error('Yahoo quote blocked, using Finnhub for prices:', qErr.message);
+            if (process.env.FINNHUB_TOKEN) {
+               const fhQuotes = await Promise.all(symbols.map(async (s) => {
+                 try {
+                   const resp = await fetch(`https://finnhub.io/api/v1/quote?symbol=${s}&token=${process.env.FINNHUB_TOKEN}`);
+                   const quote = await resp.json();
+                   if (!quote || !quote.c) return null;
+                   const vq = validQuotes.find(v => v.symbol === s);
+                   return {
+                     symbol: s,
+                     shortName: vq?.shortName || vq?.longName || s,
+                     regularMarketPrice: quote.c,
+                     regularMarketChangePercent: quote.pc > 0 ? ((quote.c - quote.pc) / quote.pc * 100) : 0,
+                     quoteType: vq?.quoteType || 'EQUITY',
+                     currency: 'USD'
+                   };
+                 } catch { return null; }
+               }));
+               quotesArray = fhQuotes.filter(Boolean);
+            }
+          }
 
           return quotesArray.map(quote => ({
             symbol: quote.quoteType === 'CRYPTOCURRENCY' ? quote.symbol.replace('-USD', 'USDT').replace('MATICUSDT', 'POLUSDT') : quote.symbol,
