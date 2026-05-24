@@ -258,8 +258,8 @@ app.get('/api/search', async (req, res) => {
       }
     }
 
-    if (finalResults.length === 0) {
-      // Fallback to Yahoo if Finnhub failed or not configured
+    if (finalResults.length < 5) {
+      // Fallback to Yahoo if Finnhub failed, not configured, or returned too few results
       try {
         const results = await enqueue(async () => {
           const searchResults = await yf.search(q);
@@ -281,7 +281,15 @@ app.get('/api/search', async (req, res) => {
             currency: quote.currency || 'USD'
           })).filter(r => r.price != null);
         });
-        finalResults = results;
+        
+        // Merge avoiding duplicates
+        const existingSymbols = new Set(finalResults.map(r => r.symbol));
+        results.forEach(r => {
+          if (!existingSymbols.has(r.symbol)) {
+            finalResults.push(r);
+          }
+        });
+
       } catch (err) {
         console.error('Yahoo fallback search failed:', err.message);
       }
