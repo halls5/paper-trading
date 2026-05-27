@@ -154,8 +154,11 @@ export default function App() {
         .then(r => {
           if (r.ok) return r.json();
           if (r.status === 401 || r.status === 403) {
+            // 세션 만료 → 자동 로그아웃
             localStorage.clear();
-            window.location.reload();
+            setUser(null);
+            alert('로그인 세션이 만료되었습니다. 다시 로그인해주세요.');
+            return null;
           }
           return null;
         })
@@ -213,6 +216,7 @@ export default function App() {
   const fetchPortfolio = async (tok) => {
     try {
       const res = await fetch('/api/portfolio', { headers: { Authorization: `Bearer ${tok}` } });
+      if (res.status === 401 || res.status === 403) { handleLogout(); return; }
       if (res.ok) setPortfolio(await res.json());
     } catch (_) {}
   };
@@ -220,7 +224,8 @@ export default function App() {
   const fetchHistory = async (tk) => {
     try {
       const res = await fetch('/api/transactions', { headers: { Authorization: `Bearer ${tk}` } });
-      if (res.ok) setHistory((await res.json()).reverse());
+      if (res.status === 401 || res.status === 403) { handleLogout(); return; }
+      if (res.ok) setHistory(await res.json()); // 백엔드가 ORDER BY timestamp DESC 반환
     } catch (_) {}
   };
 
@@ -676,7 +681,7 @@ export default function App() {
   return (
     <div style={{ minHeight: '100vh', padding: '1.2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.2rem' }}>
       <header className="glass-header" style={{ width: '100%', maxWidth: '1360px', padding: '0.9rem 1.4rem', borderRadius: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-        <h2 style={{ margin: 0 }}><span className="text-gradient">Paper Trading</span></h2>
+        <h2 style={{ margin: 0, cursor: 'pointer' }} onClick={() => setActiveTab('CRYPTO')}><span className="text-gradient">Paper Trading</span></h2>
 
         <form onSubmit={handleSearch} style={{ display: 'flex', gap: '0.5rem', flex: '1', maxWidth: 460 }}>
           <input type="text" placeholder="종목 검색 (삼성전자, Apple, Bitcoin...)" value={query}
