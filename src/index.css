@@ -5,6 +5,7 @@
   --bg-card: rgba(25, 28, 41, 0.7);
   --text-primary: #f8f9fa;
   --text-secondary: #a0aab2;
+  --input-text: #f8f9fa;
   --accent-color: #3b82f6;
   --accent-hover: #2563eb;
   --success-color: #10b981;
@@ -18,16 +19,17 @@
 }
 
 [data-theme='light'] {
-  --bg-dark: #f0f4f8;
-  --bg-card: rgba(255, 255, 255, 0.75);
-  --text-primary: #1e293b;
-  --text-secondary: #64748b;
-  --border-color: rgba(0, 0, 0, 0.06);
-  --glass-header-bg: rgba(255, 255, 255, 0.85);
-  --row-bg: rgba(255, 255, 255, 0.6);
-  --input-bg: rgba(255, 255, 255, 0.8);
-  --btn-bg: rgba(0, 0, 0, 0.05);
-  --btn-hover: rgba(0, 0, 0, 0.1);
+  --bg-dark: #eef2f7;
+  --bg-card: rgba(255, 255, 255, 0.88);
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --input-text: #0f172a;
+  --border-color: rgba(0, 0, 0, 0.10);
+  --glass-header-bg: rgba(255, 255, 255, 0.92);
+  --row-bg: rgba(255, 255, 255, 0.75);
+  --input-bg: rgba(255, 255, 255, 0.95);
+  --btn-bg: rgba(0, 0, 0, 0.07);
+  --btn-hover: rgba(0, 0, 0, 0.13);
 }
 
 * {
@@ -125,16 +127,47 @@ h1, h2, h3, h4 {
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.1);
+  background: rgba(0, 0, 0, 0.08);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(128, 128, 128, 0.35);
   border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(128, 128, 128, 0.55);
+}
+
+/* Light mode overrides for inline-color elements */
+[data-theme='light'] input,
+[data-theme='light'] textarea {
+  color: var(--input-text) !important;
+}
+
+[data-theme='light'] .btn {
+  color: var(--text-primary);
+}
+
+/* Better contrast for secondary text in light mode */
+[data-theme='light'] [style*="color: 'var(--text-secondary)'"] {
+  color: var(--text-secondary);
+}
+
+/* Placeholder color */
+input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+[data-theme='light'] input::placeholder {
+  color: #64748b;
+  opacity: 0.8;
+}
+
+/* Light mode input border */
+[data-theme='light'] input {
+  border-color: rgba(0, 0, 0, 0.18) !important;
 }
 
 /* Loading Spinner */

@@ -151,7 +151,14 @@ export default function App() {
       fetchRanking();
       fetchHistory(token);
       fetch('/api/users/me', { headers: { Authorization: `Bearer ${token}` } })
-        .then(r => r.ok ? r.json() : null)
+        .then(r => {
+          if (r.ok) return r.json();
+          if (r.status === 401 || r.status === 403) {
+            localStorage.clear();
+            window.location.reload();
+          }
+          return null;
+        })
         .then(u => { if (u) { setUser(u); localStorage.setItem('user', JSON.stringify(u)); } })
         .catch(() => {});
     }
@@ -418,7 +425,7 @@ export default function App() {
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
           <h3 style={{ margin: 0 }}>🏆 수익률 랭킹</h3>
-          <button className="btn" style={{ background: 'var(--btn-bg)', color: 'white', fontSize: '0.8rem', padding: '6px 14px' }} onClick={fetchRanking}>새로고침</button>
+          <button className="btn" style={{ background: 'var(--btn-bg)', color: 'var(--text-primary)', fontSize: '0.8rem', padding: '6px 14px' }} onClick={fetchRanking}>새로고침</button>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '36px 1fr 120px 100px 80px', gap: '0.5rem', padding: '0.4rem 0.8rem', color: 'var(--text-secondary)', fontSize: '0.75rem', borderBottom: '1px solid var(--border-color)', marginBottom: '0.5rem' }}>
@@ -476,7 +483,7 @@ export default function App() {
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
           <h3 style={{ margin: 0 }}><ScrollText size={16} style={{ marginRight: 4, verticalAlign: "text-bottom" }} /> 거래 내역</h3>
-          <button className="btn" style={{ background: 'var(--btn-bg)', color: 'white', fontSize: '0.8rem', padding: '6px 14px' }} onClick={() => fetchHistory(token())}>새로고침</button>
+          <button className="btn" style={{ background: 'var(--btn-bg)', color: 'var(--text-primary)', fontSize: '0.8rem', padding: '6px 14px' }} onClick={() => fetchHistory(token())}>새로고침</button>
         </div>
         
         {history.length === 0 ? (
@@ -546,13 +553,13 @@ export default function App() {
       <div onClick={e => e.target === e.currentTarget && setTradingAsset(null)}
            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
         <div className="glass-panel" style={{ width: '100%', maxWidth: '420px', position: 'relative' }}>
-          <button onClick={() => setTradingAsset(null)} style={{ position: 'absolute', top: 15, right: 15, background: 'none', border: 'none', color: 'white', fontSize: '1.5rem', cursor: 'pointer', lineHeight: 1 }}>×</button>
+          <button onClick={() => setTradingAsset(null)} style={{ position: 'absolute', top: 15, right: 15, background: 'none', border: 'none', color: 'var(--text-primary)', fontSize: '1.5rem', cursor: 'pointer', lineHeight: 1 }}>×</button>
           <h2 style={{ marginBottom: '0.25rem' }}>{tradingAsset.name}</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>{tradingAsset.symbol}</p>
 
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.2rem' }}>
-            <button className={`btn ${tradeType === 'BUY' ? 'btn-success' : ''}`} style={{ flex: 1, padding: '10px', background: tradeType !== 'BUY' ? 'var(--btn-bg)' : '', color: 'white' }} onClick={() => setTradeType('BUY')}>매수</button>
-            <button className={`btn ${tradeType === 'SELL' ? 'btn-danger' : ''}`} style={{ flex: 1, padding: '10px', background: tradeType !== 'SELL' ? 'var(--btn-bg)' : '', color: 'white' }} onClick={() => setTradeType('SELL')}>매도</button>
+            <button className={`btn ${tradeType === 'BUY' ? 'btn-success' : ''}`} style={{ flex: 1, padding: '10px', background: tradeType !== 'BUY' ? 'var(--btn-bg)' : '', color: tradeType !== 'BUY' ? 'var(--text-primary)' : 'white' }} onClick={() => setTradeType('BUY')}>매수</button>
+            <button className={`btn ${tradeType === 'SELL' ? 'btn-danger' : ''}`} style={{ flex: 1, padding: '10px', background: tradeType !== 'SELL' ? 'var(--btn-bg)' : '', color: tradeType !== 'SELL' ? 'var(--text-primary)' : 'white' }} onClick={() => setTradeType('SELL')}>매도</button>
           </div>
 
           <div style={{ background: 'var(--row-bg)', borderRadius: '8px', padding: '0.8rem', marginBottom: '1rem' }}>
@@ -597,14 +604,14 @@ export default function App() {
               </div>
               <input type="number" step="any" min="0" value={qty} onChange={e => setQty(e.target.value)} required
                 placeholder={tradingAsset.type === 'CRYPTO' ? '예: 0.001' : '예: 1'}
-                style={{ width: '100%', padding: '11px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--row-bg)', color: 'white', fontSize: '1rem', boxSizing: 'border-box' }} />
+                style={{ width: '100%', padding: '11px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--row-bg)', color: 'var(--input-text)', fontSize: '1rem', boxSizing: 'border-box' }} />
             </div>
 
             {/* 수수료 상세 */}
             <div style={{ background: 'var(--row-bg)', borderRadius: '8px', padding: '0.7rem', fontSize: '0.84rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
                 <span>주문금액</span>
-                <span style={{ color: 'white' }}>
+                <span style={{ color: 'var(--input-text)' }}>
                   {curr === 'KRW' ? fmtBalance(total) : `$${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`}
                   {curr !== 'KRW' && <span style={{ color: 'var(--text-secondary)', fontSize: '0.76rem', marginLeft: '0.3rem' }}>(≈ {fmtBalance(totalKRW)})</span>}
                 </span>
@@ -617,7 +624,7 @@ export default function App() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border-color)', paddingTop: '0.3rem', marginTop: '0.1rem' }}>
                 <span style={{ fontWeight: 600 }}>{tradeType === 'BUY' ? '실결제금액' : '실수령금액'}</span>
-                <strong style={{ color: 'white' }}>{q > 0 ? fmtBalance(totalWithFeeKRW) : '-'}</strong>
+                <strong style={{ color: 'var(--input-text)' }}>{q > 0 ? fmtBalance(totalWithFeeKRW) : '-'}</strong>
               </div>
             </div>
 
@@ -646,7 +653,7 @@ export default function App() {
                 </label>
                 <input type={field === 'password' ? 'password' : 'text'} value={form[field]}
                   onChange={e => setForm(p => ({ ...p, [field]: e.target.value }))} required
-                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--row-bg)', color: 'white', fontSize: '1rem', boxSizing: 'border-box' }} />
+                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--row-bg)', color: 'var(--input-text)', fontSize: '1rem', boxSizing: 'border-box' }} />
               </div>
             ))}
             {authError && <p style={{ color: 'var(--danger-color)', textAlign: 'center', fontSize: '0.9rem' }}>{authError}</p>}
@@ -674,7 +681,7 @@ export default function App() {
         <form onSubmit={handleSearch} style={{ display: 'flex', gap: '0.5rem', flex: '1', maxWidth: 460 }}>
           <input type="text" placeholder="종목 검색 (삼성전자, Apple, Bitcoin...)" value={query}
             onChange={e => setQuery(e.target.value)}
-            style={{ flex: 1, padding: '8px 14px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--input-bg)', color: 'white', fontSize: '0.88rem' }} />
+            style={{ flex: 1, padding: '8px 14px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--input-bg)', color: 'var(--input-text)', fontSize: '0.88rem' }} />
           <button type="submit" className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '0.88rem' }}>검색</button>
         </form>
 
@@ -703,7 +710,7 @@ export default function App() {
               )}
             </div>
           </div>
-          <button className="btn" style={{ background: 'var(--btn-bg)', color: 'white', padding: '7px 13px', fontSize: '0.83rem' }} onClick={() => { setActiveTab('RANKING'); fetchRanking(); }}><Trophy size={16} style={{ marginRight: 4, verticalAlign: "text-bottom" }} /> 랭킹</button>
+          <button className="btn" style={{ background: 'var(--btn-bg)', color: 'var(--text-primary)', padding: '7px 13px', fontSize: '0.83rem' }} onClick={() => { setActiveTab('RANKING'); fetchRanking(); }}><Trophy size={16} style={{ marginRight: 4, verticalAlign: "text-bottom" }} /> 랭킹</button>
           <button className="btn btn-danger" style={{ padding: '7px 13px', fontSize: '0.83rem' }} onClick={handleLogout}>로그아웃</button>
         </div>
       </header>
@@ -737,7 +744,7 @@ export default function App() {
           <div className="glass-panel" style={{ padding: '1.2rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h3 style={{ margin: 0 }}><PieChartIcon size={18} style={{ marginRight: 6, verticalAlign: "text-bottom" }} /> 내 포트폴리오</h3>
-              <button className="btn" style={{ background: 'var(--btn-bg)', color: 'white', fontSize: '0.8rem', padding: '5px 12px' }} onClick={() => fetchPortfolio(token())}>새로고침</button>
+              <button className="btn" style={{ background: 'var(--btn-bg)', color: 'var(--text-primary)', fontSize: '0.8rem', padding: '5px 12px' }} onClick={() => fetchPortfolio(token())}>새로고침</button>
             </div>
             {portfolioWithValues.length === 0 ? (
               <p style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '2rem 0' }}>보유 자산이 없습니다.</p>
@@ -814,7 +821,7 @@ export default function App() {
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', alignItems: 'center' }}>
                 <h3 style={{ margin: 0 }}><TrendingUp size={18} style={{ marginRight: 6, verticalAlign: "text-bottom" }} /> 국내외 우량주 (지연 시세)</h3>
-                <button className="btn" style={{ background: 'var(--btn-bg)', color: 'white', fontSize: '0.75rem', padding: '4px 10px' }} onClick={fetchStocks}>새로고침</button>
+                <button className="btn" style={{ background: 'var(--btn-bg)', color: 'var(--text-primary)', fontSize: '0.75rem', padding: '4px 10px' }} onClick={fetchStocks}>새로고침</button>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 {stockData.map(s => <AssetRow key={s.symbol} data={s} liveData={liveData} setChartAsset={setChartAsset} setTradingAsset={setTradingAsset} setTradeType={setTradeType} setQty={setQty} setTradeErr={setTradeErr} />)}
@@ -825,7 +832,7 @@ export default function App() {
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', alignItems: 'center' }}>
                 <h3 style={{ margin: 0 }}><TrendingUp size={18} style={{ marginRight: 6, verticalAlign: "text-bottom" }} /> 국내외 주요 ETF</h3>
-                <button className="btn" style={{ background: 'var(--btn-bg)', color: 'white', fontSize: '0.75rem', padding: '4px 10px' }} onClick={fetchEtfs}>새로고침</button>
+                <button className="btn" style={{ background: 'var(--btn-bg)', color: 'var(--text-primary)', fontSize: '0.75rem', padding: '4px 10px' }} onClick={fetchEtfs}>새로고침</button>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 {etfData.map(s => <AssetRow key={s.symbol} data={s} liveData={liveData} setChartAsset={setChartAsset} setTradingAsset={setTradingAsset} setTradeType={setTradeType} setQty={setQty} setTradeErr={setTradeErr} />)}

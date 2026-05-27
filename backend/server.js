@@ -455,7 +455,12 @@ app.get('/api/etfs/top', async (req, res) => {
     { symbol: '069500.KS', name: 'KODEX 200', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
     { symbol: '360750.KS', name: 'TIGER 미국S&P500', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
     { symbol: '122630.KS', name: 'KODEX 레버리지', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
-    { symbol: '114800.KS', name: 'KODEX 인버스', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' }
+    { symbol: '114800.KS', name: 'KODEX 인버스', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '261220.KS', name: 'KODEX 반도체 레버리지(하이닉스)', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '251340.KS', name: 'KODEX 코스닥150레버리지', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '411060.KS', name: 'ACE 미국나스닥100레버리지', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '445680.KS', name: 'KODEX 미국AI테크TOP10+10%', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '278530.KS', name: 'KODEX 미국반도체MV', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' }
   ];
 
   try {
