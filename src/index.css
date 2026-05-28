@@ -224,7 +224,7 @@ a[href*="tradingview.com"] { display:none !important; }
 }
 .mobile-nav-inner {
   display: flex; height:100%;
-  max-width: 480px; margin:0 auto;
+  width: 100%;
 }
 .mobile-nav-btn {
   flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
@@ -242,12 +242,11 @@ a[href*="tradingview.com"] { display:none !important; }
 
 /* Tablet */
 @media (max-width: 920px) {
-  .sidebar { flex: 0 0 100%; max-width:100%; flex-direction:row; flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:4px; }
-  .sidebar > * { flex: 0 0 280px; }
-  .sidebar::-webkit-scrollbar { height:3px; }
+  .sidebar { flex: 0 0 100%; max-width:100%; flex-direction:row; flex-wrap:wrap; gap:0.8rem; }
+  .sidebar > * { flex: 1 1 300px; }
+  .sidebar::-webkit-scrollbar { display:none; }
   .app-body { flex-wrap:wrap; }
   .main-panel { flex: 0 0 100%; }
-  /* hide ranking col */
   .rank-col-pnl { display:none; }
 }
 
@@ -267,10 +266,10 @@ a[href*="tradingview.com"] { display:none !important; }
   /* show mobile nav */
   .mobile-nav { display:flex; }
 
-  /* sidebar */
-  .sidebar { flex:0 0 100%; max-width:100%; flex-direction:row; flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:4px; gap:0.6rem; }
-  .sidebar > * { flex:0 0 auto; width:260px; }
-  .sidebar-balance { width:220px; }
+  /* sidebar - vertical stack, no scroll */
+  .sidebar { flex:0 0 100%; max-width:100%; flex-direction:column; overflow-x:visible; gap:0.6rem; }
+  .sidebar > * { flex: unset; width: 100%; }
+  .sidebar-balance { width: 100%; }
 
   /* main panel */
   .main-panel { padding:0.85rem; }
