@@ -24,7 +24,6 @@ const guessCurrency = (symbol, fallback = 'USD') => {
 // React.memo ensures it only re-renders when its own props change, not when the
 // parent App re-renders due to Binance WebSocket updates every second.
 const AssetRow = memo(function AssetRow({ data, liveData, setChartAsset, setTradingAsset, setTradeType, setQty, setTradeErr }) {
-  // For crypto search results (price: null from server), fill in live Binance price
   const liveEntry = data.type === 'CRYPTO' ? liveData[data.symbol] : null;
   const displayData = (liveEntry && !data.price)
     ? { ...data, price: liveEntry.price, changePercent: liveEntry.changePercent }
@@ -35,19 +34,18 @@ const AssetRow = memo(function AssetRow({ data, liveData, setChartAsset, setTrad
   const openSell = () => { setTradingAsset(displayData); setTradeType('SELL'); setQty(''); setTradeErr(''); };
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', padding: '0.7rem 1rem', background: 'var(--row-bg)', borderRadius: '10px', marginBottom: '0.4rem' }}>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 600, fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayData.name}</div>
-        <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{displayData.symbol}</div>
+    <div className="asset-row">
+      <div className="asset-row-info">
+        <div className="asset-row-info-name">{displayData.name}</div>
+        <div className="asset-row-info-sym">{displayData.symbol}</div>
       </div>
 
-      {/* Mini sparkline */}
-      <div style={{ cursor: 'pointer', flexShrink: 0 }} onClick={() => setChartAsset(displayData)}>
+      <div className="asset-row-chart" style={{ cursor: 'pointer', flexShrink: 0 }} onClick={() => setChartAsset(displayData)}>
         <MiniChart symbol={displayData.symbol} type={displayData.type} currency={displayData.currency} />
       </div>
 
-      <div style={{ textAlign: 'right', flexShrink: 0, minWidth: '100px' }}>
-        <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>
+      <div className="asset-row-price">
+        <div className="asset-row-price-val">
           {displayData.price
             ? fmtPrice(displayData.price, displayData.currency)
             : <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>가격 로딩중...</span>}
@@ -57,14 +55,12 @@ const AssetRow = memo(function AssetRow({ data, liveData, setChartAsset, setTrad
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '0.3rem', flexShrink: 0 }}>
+      <div className="asset-row-actions">
         <button className="btn" style={{ padding: '5px 8px', background: 'rgba(59,130,246,0.15)', color: '#60a5fa', fontSize: '0.78rem' }} onClick={() => setChartAsset(displayData)}>차트</button>
         <button className="btn btn-success" style={{ padding: '5px 10px', fontSize: '0.78rem' }}
-          onClick={openBuy}
-          disabled={!displayData.price}>매수</button>
+          onClick={openBuy} disabled={!displayData.price}>매수</button>
         <button className="btn btn-danger" style={{ padding: '5px 10px', fontSize: '0.78rem' }}
-          onClick={openSell}
-          disabled={!displayData.price}>매도</button>
+          onClick={openSell} disabled={!displayData.price}>매도</button>
       </div>
     </div>
   );
@@ -556,8 +552,8 @@ export default function App() {
 
     return (
       <div onClick={e => e.target === e.currentTarget && setTradingAsset(null)}
-           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-        <div className="glass-panel" style={{ width: '100%', maxWidth: '420px', position: 'relative' }}>
+           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '1rem' }}>
+        <div className="glass-panel trade-modal-box" style={{ width: '100%', maxWidth: '420px', position: 'relative' }}>
           <button onClick={() => setTradingAsset(null)} style={{ position: 'absolute', top: 15, right: 15, background: 'none', border: 'none', color: 'var(--text-primary)', fontSize: '1.5rem', cursor: 'pointer', lineHeight: 1 }}>×</button>
           <h2 style={{ marginBottom: '0.25rem' }}>{tradingAsset.name}</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>{tradingAsset.symbol}</p>
@@ -679,32 +675,33 @@ export default function App() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', padding: '1.2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.2rem' }}>
-      <header className="glass-header" style={{ width: '100%', maxWidth: '1360px', padding: '0.9rem 1.4rem', borderRadius: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-        <h2 style={{ margin: 0, cursor: 'pointer' }} onClick={() => setActiveTab('CRYPTO')}><span className="text-gradient">Paper Trading</span></h2>
+    <div className="app-root">
+      <header className="glass-header app-header">
+        <div className="header-logo">
+          <h2 onClick={() => setActiveTab('CRYPTO')}><span className="text-gradient">Paper Trading</span></h2>
+        </div>
 
-        <form onSubmit={handleSearch} style={{ display: 'flex', gap: '0.5rem', flex: '1', maxWidth: 460 }}>
+        <form onSubmit={handleSearch} className="header-search">
           <input type="text" placeholder="종목 검색 (삼성전자, Apple, Bitcoin...)" value={query}
-            onChange={e => setQuery(e.target.value)}
-            style={{ flex: 1, padding: '8px 14px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--input-bg)', color: 'var(--input-text)', fontSize: '0.88rem' }} />
+            onChange={e => setQuery(e.target.value)} />
           <button type="submit" className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '0.88rem' }}>검색</button>
         </form>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
+        <div className="header-right">
           <button className="btn" style={{ background: 'var(--btn-bg)', color: 'var(--text-primary)', padding: '6px' }}
                   onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
-          
-          <div style={{ textAlign: 'right', marginLeft: '0.5rem' }}>
-            <div style={{ fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'flex-end' }}>
+
+          <div className="user-info">
+            <div className="user-info-name">
               <span title={`티어: ${totalAssetKRW >= 300000000 ? '고래' : totalAssetKRW >= 150000000 ? '고수' : totalAssetKRW >= 100000000 ? '성장' : '초보'}`}
                 style={{ fontSize: '1rem', cursor: 'default' }}>
                 {getTierIcon(totalAssetKRW)}
               </span>
               {user.nickname}
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', marginTop: '0.1rem' }}>
+            <div className="user-info-stats">
               <span style={{ color: totalPnl >= 0 ? 'var(--success-color)' : 'var(--danger-color)', fontWeight: 600 }}>
                 {totalPnl >= 0 ? '+' : ''}{totalPnlPct}%
               </span>
@@ -715,14 +712,14 @@ export default function App() {
               )}
             </div>
           </div>
-          <button className="btn" style={{ background: 'var(--btn-bg)', color: 'var(--text-primary)', padding: '7px 13px', fontSize: '0.83rem' }} onClick={() => { setActiveTab('RANKING'); fetchRanking(); }}><Trophy size={16} style={{ marginRight: 4, verticalAlign: "text-bottom" }} /> 랭킹</button>
-          <button className="btn btn-danger" style={{ padding: '7px 13px', fontSize: '0.83rem' }} onClick={handleLogout}>로그아웃</button>
+          <button className="btn header-ranking-btn" style={{ background: 'var(--btn-bg)', color: 'var(--text-primary)', padding: '7px 13px', fontSize: '0.83rem' }} onClick={() => { setActiveTab('RANKING'); fetchRanking(); }}><Trophy size={16} style={{ marginRight: 4, verticalAlign: "text-bottom" }} /> 랭킹</button>
+          <button className="btn btn-danger header-logout-btn" style={{ padding: '7px 13px', fontSize: '0.83rem' }} onClick={handleLogout}>로그아웃</button>
         </div>
       </header>
 
-      <div style={{ display: 'flex', gap: '1.2rem', width: '100%', maxWidth: '1360px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
-        <div style={{ flex: '1 1 300px', display: 'flex', flexDirection: 'column', gap: '1.2rem', maxWidth: 360 }}>
-          <div className="glass-panel" style={{ padding: '1.2rem' }}>
+      <div className="app-body">
+        <div className="sidebar">
+          <div className="glass-panel balance-card sidebar-balance">
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginBottom: '0.3rem' }}><Wallet size={15} style={{ marginRight: 4, verticalAlign: "text-bottom" }} /> 총 잔고</p>
             <h1 className="text-gradient" style={{ fontSize: '1.8rem', margin: 0, letterSpacing: '-0.03em' }}>{fmtBalance(totalAssetKRW)}</h1>
             <div style={{ marginTop: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
@@ -746,7 +743,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="glass-panel" style={{ padding: '1.2rem' }}>
+          <div className="glass-panel sidebar-portfolio">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h3 style={{ margin: 0 }}><PieChartIcon size={18} style={{ marginRight: 6, verticalAlign: "text-bottom" }} /> 내 포트폴리오</h3>
               <button className="btn" style={{ background: 'var(--btn-bg)', color: 'var(--text-primary)', fontSize: '0.8rem', padding: '5px 12px' }} onClick={() => fetchPortfolio(token())}>새로고침</button>
@@ -790,8 +787,8 @@ export default function App() {
           </div>
         </div>
 
-        <div className="glass-panel" style={{ flex: '2 1 580px', padding: '1.4rem' }}>
-          <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '1.2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.9rem', flexWrap: 'wrap' }}>
+        <div className="glass-panel main-panel">
+          <div className="tab-bar">
             {[['CRYPTO', <><Coins size={16} style={{ marginRight: 4, verticalAlign: "text-bottom" }} /> 코인 Top 10</>],
               ['STOCK', <><TrendingUp size={16} style={{ marginRight: 4, verticalAlign: "text-bottom" }} /> 주식 Top 10</>],
               ['ETF', <><TrendingUp size={16} style={{ marginRight: 4, verticalAlign: "text-bottom" }} /> ETF Top 10</>],
@@ -883,6 +880,37 @@ export default function App() {
           )}
         </div>
       </div>
+
+      {/* Mobile bottom navigation */}
+      <nav className="mobile-nav">
+        <div className="mobile-nav-inner">
+          {[
+            ['CRYPTO',    <Coins size={20} />,      '코인'],
+            ['STOCK',     <TrendingUp size={20} />,  '주식'],
+            ['ETF',       <TrendingUp size={20} />,  'ETF'],
+            ['SEARCH',    <Search size={20} />,      '검색'],
+            ['HISTORY',   <ScrollText size={20} />,  '내역'],
+            ['RANKING',   <Trophy size={20} />,      '랭킹'],
+            ['PORTFOLIO', <PieChartIcon size={20} />,'포트폴'],
+          ].map(([key, icon, label]) => (
+            <button key={key}
+              className={`mobile-nav-btn${activeTab === key ? ' active' : ''}`}
+              onClick={() => {
+                setActiveTab(key);
+                if (key === 'RANKING') fetchRanking();
+                if (key === 'HISTORY') fetchHistory(token());
+              }}>
+              {icon}
+              <span>{label}</span>
+            </button>
+          ))}
+          <button className="mobile-nav-btn" onClick={handleLogout} style={{ color: 'var(--danger-color)' }}>
+            <Moon size={20} />
+            <span>로그아웃</span>
+          </button>
+        </div>
+      </nav>
+
       {renderTradeModal()}
       {chartAsset && <ChartModal asset={chartAsset} onClose={() => setChartAsset(null)} />}
     </div>
