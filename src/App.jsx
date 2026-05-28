@@ -429,8 +429,8 @@ export default function App() {
           <button className="btn" style={{ background: 'var(--btn-bg)', color: 'var(--text-primary)', fontSize: '0.8rem', padding: '6px 14px' }} onClick={fetchRanking}>새로고침</button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '36px 1fr 120px 100px 80px', gap: '0.5rem', padding: '0.4rem 0.8rem', color: 'var(--text-secondary)', fontSize: '0.75rem', borderBottom: '1px solid var(--border-color)', marginBottom: '0.5rem' }}>
-          <span>순위</span><span>닉네임 / 포트폴리오</span><span style={{ textAlign: 'right' }}>총 자산</span><span style={{ textAlign: 'right' }}>손익</span><span style={{ textAlign: 'right' }}>수익률</span>
+        <div className="ranking-header" style={{ display: 'grid', gridTemplateColumns: '36px 1fr 120px 100px 80px', gap: '0.5rem', padding: '0.4rem 0.8rem', color: 'var(--text-secondary)', fontSize: '0.75rem', borderBottom: '1px solid var(--border-color)', marginBottom: '0.5rem' }}>
+          <span>순위</span><span>닉네임 / 포트폴리오</span><span style={{ textAlign: 'right' }}>총 자산</span><span className="rank-col-pnl" style={{ textAlign: 'right' }}>손익</span><span style={{ textAlign: 'right' }}>수익률</span>
         </div>
 
         {computedRanking.length === 0 ? (
@@ -441,9 +441,9 @@ export default function App() {
           const medal = r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : `${r.rank}`;
           
           return (
-            <div key={r.nickname} style={{
+            <div key={r.nickname} className="ranking-row" style={{
               display: 'grid', gridTemplateColumns: '36px 1fr 120px 100px 80px', gap: '0.5rem', padding: '0.7rem 0.8rem',
-              background: isMe ? 'rgba(59,130,246,0.12)' : 'rgba(0,0,0,0.12)',
+              background: isMe ? 'rgba(59,130,246,0.12)' : 'var(--row-bg)',
               borderRadius: '8px', marginBottom: '0.4rem',
               border: isMe ? '1px solid rgba(59,130,246,0.35)' : '1px solid transparent',
             }}>
@@ -451,7 +451,7 @@ export default function App() {
               <div>
                 <div style={{ fontWeight: isMe ? 700 : 400, display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: 4 }}>
                   {r.nickname}
-                  {isMe && <span style={{ fontSize: '0.65rem', background: 'var(--accent-color)', padding: '1px 5px', borderRadius: '3px' }}>나</span>}
+                  {isMe && <span style={{ fontSize: '0.65rem', background: 'var(--accent-color)', color: '#fff', padding: '1px 5px', borderRadius: '3px' }}>나</span>}
                 </div>
                 {(r.holdings?.length > 0 || r.balance > 0) && (
                   <AssetAllocationBar holdings={r.holdings} balance={r.balance} totalKRW={r.totalAsset} usdKrw={USD_TO_KRW} />
@@ -466,7 +466,7 @@ export default function App() {
                 })()}
               </div>
               <span style={{ textAlign: 'right', fontWeight: 600, fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>{fmtBalance(r.totalAsset)}</span>
-              <span style={{ textAlign: 'right', color: isPos ? 'var(--success-color)' : 'var(--danger-color)', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+              <span className="rank-col-pnl" style={{ textAlign: 'right', color: isPos ? 'var(--success-color)' : 'var(--danger-color)', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
                 {isPos ? '+' : ''}{fmtBalance(r.profitLoss)}
               </span>
               <span style={{ textAlign: 'right', color: isPos ? 'var(--success-color)' : 'var(--danger-color)', fontWeight: 700, fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
@@ -551,9 +551,9 @@ export default function App() {
     const holding = portfolio.find(p => p.asset_symbol === tradingAsset.symbol);
 
     return (
-      <div onClick={e => e.target === e.currentTarget && setTradingAsset(null)}
-           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '1rem' }}>
-        <div className="glass-panel trade-modal-box" style={{ width: '100%', maxWidth: '420px', position: 'relative' }}>
+      <div className="trade-modal-wrap" onClick={e => e.target === e.currentTarget && setTradingAsset(null)}
+           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(6px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '1rem' }}>
+        <div className="glass-panel trade-modal-box" style={{ width: '100%', maxWidth: '420px', position: 'relative', maxHeight: '90vh', overflowY: 'auto' }}>
           <button onClick={() => setTradingAsset(null)} style={{ position: 'absolute', top: 15, right: 15, background: 'none', border: 'none', color: 'var(--text-primary)', fontSize: '1.5rem', cursor: 'pointer', lineHeight: 1 }}>×</button>
           <h2 style={{ marginBottom: '0.25rem' }}>{tradingAsset.name}</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>{tradingAsset.symbol}</p>
