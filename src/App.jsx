@@ -194,7 +194,7 @@ export default function App() {
     ws.onopen = () => {
       ws.send(JSON.stringify({
         method: 'SUBSCRIBE',
-        params: TOP_10_CRYPTO.map(s => `${s.toLowerCase()}@ticker`),
+        params: TOP_50_CRYPTO.map(s => `${s.toLowerCase()}@ticker`),
         id: 1
       }));
     };
