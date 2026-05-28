@@ -3,7 +3,7 @@ import './index.css';
 import { MiniChart, ChartModal, PieChart, AssetAllocationBar, PortfolioHistoryChart } from './ChartComponents';
 import { Sun, Moon, Coins, TrendingUp, Search, Trophy, ScrollText, Wallet, PieChart as PieChartIcon, User, LogOut } from 'lucide-react';
 
-const TOP_10_CRYPTO = ['BTCUSDT','ETHUSDT','BNBUSDT','SOLUSDT','XRPUSDT','DOGEUSDT','ADAUSDT','AVAXUSDT','DOTUSDT','POLUSDT'];
+const TOP_50_CRYPTO = ['BTCUSDT','ETHUSDT','BNBUSDT','SOLUSDT','XRPUSDT','DOGEUSDT','ADAUSDT','AVAXUSDT','DOTUSDT','POLUSDT','LINKUSDT','TRXUSDT','TONUSDT','SHIBUSDT','BCHUSDT','NEARUSDT','LTCUSDT','ICPUSDT','UNIUSDT','APTUSDT','ETCUSDT','XLMUSDT','HBARUSDT','FILUSDT','STXUSDT','VETUSDT','INJUSDT','OPUSDT','RNDRUSDT','ARBUSDT','IMXUSDT','MNTUSDT','TIAUSDT','KASUSDT','LDOUSDT','SUIUSDT','GRTUSDT','THETAUSDT','XMRUSDT','AAVEUSDT','EOSUSDT','FTMUSDT','ALGOUSDT','EGLDUSDT','FLOWUSDT','SANDUSDT','MANAUSDT','QNTUSDT','APEUSDT','CHZUSDT'];
 const USD_TO_KRW = 1380;
 
 const fmtPrice = (price, currency) =>
@@ -78,6 +78,31 @@ function SearchError({ msg }) {
 }
 
 export default function App() {
+  const [cryptoPage, setCryptoPage] = useState(1);
+  const [stockPage, setStockPage] = useState(1);
+  const [etfPage, setEtfPage] = useState(1);
+  const ITEMS_PER_PAGE = 15;
+
+  const Pagination = ({ page, setPage, totalItems }) => {
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+    if (totalPages <= 1) return null;
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '0.4rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+        {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+          <button key={p} onClick={() => setPage(p)}
+            style={{
+              padding: '6px 11px', borderRadius: '6px', border: 'none',
+              background: page === p ? 'var(--accent-color)' : 'var(--btn-bg)',
+              color: page === p ? '#fff' : 'var(--text-primary)',
+              cursor: 'pointer', fontSize: '0.85rem', fontWeight: page === p ? 'bold' : 'normal'
+            }}>
+            {p}
+          </button>
+        ))}
+      </div>
+    );
+  };
+
   /* ── Auth ── */
   const [isLoginView, setIsLoginView] = useState(true);
   const [form, setForm] = useState({ username: '', nickname: '', password: '' });
@@ -877,14 +902,14 @@ export default function App() {
 
         <div className="glass-panel main-panel">
           <div className="tab-bar">
-            {[['CRYPTO', <><Coins size={16} style={{ marginRight: 4, verticalAlign: "text-bottom" }} /> 코인 Top 10</>],
-              ['STOCK', <><TrendingUp size={16} style={{ marginRight: 4, verticalAlign: "text-bottom" }} /> 주식 Top 10</>],
-              ['ETF', <><TrendingUp size={16} style={{ marginRight: 4, verticalAlign: "text-bottom" }} /> ETF Top 10</>],
+            {[['CRYPTO', <><Coins size={16} style={{ marginRight: 4, verticalAlign: "text-bottom" }} /> 코인 Top 50</>],
+              ['STOCK', <><TrendingUp size={16} style={{ marginRight: 4, verticalAlign: "text-bottom" }} /> 주식 Top 50</>],
+              ['ETF', <><TrendingUp size={16} style={{ marginRight: 4, verticalAlign: "text-bottom" }} /> ETF Top 50</>],
               ['SEARCH', <><Search size={16} style={{ marginRight: 4, verticalAlign: "text-bottom" }} /> 검색 결과</>],
               ['HISTORY', <><ScrollText size={16} style={{ marginRight: 4, verticalAlign: "text-bottom" }} /> 거래 내역</>],
               ['PORTFOLIO', <><PieChartIcon size={16} style={{ marginRight: 4, verticalAlign: "text-bottom" }} /> 포트폴리오 차트</>]]
               .map(([key, label]) => (
-              <button key={key} onClick={() => { setActiveTab(key); if (key === 'RANKING') fetchRanking(); if (key === 'HISTORY') fetchHistory(token()); }}
+              <button key={key} onClick={() => { setActiveTab(key); setCryptoPage(1); setStockPage(1); setEtfPage(1); if (key === 'RANKING') fetchRanking(); if (key === 'HISTORY') fetchHistory(token()); }}
                 className={`btn ${activeTab === key ? 'btn-primary' : ''}`}
                 style={{ padding: '6px 14px', fontSize: '0.82rem', background: activeTab !== key ? 'var(--btn-bg)' : '', color: activeTab !== key ? 'var(--text-primary)' : 'white' }}>
                 {label}
@@ -899,11 +924,12 @@ export default function App() {
                 <span style={{ fontSize: '0.75rem', color: 'var(--success-color)' }}>● 실시간 연동중</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {TOP_10_CRYPTO.map(sym => {
+                {TOP_50_CRYPTO.slice((cryptoPage - 1) * ITEMS_PER_PAGE, cryptoPage * ITEMS_PER_PAGE).map(sym => {
                   const d = liveData[sym] || { symbol: sym, name: sym.replace('USDT',''), price: null, changePercent: null, type: 'CRYPTO', currency: 'USD' };
                   return <AssetRow key={sym} data={d} liveData={liveData} setChartAsset={setChartAsset} setTradingAsset={setTradingAsset} setTradeType={setTradeType} setQty={setQty} setTradeErr={setTradeErr} />;
                 })}
               </div>
+              <Pagination page={cryptoPage} setPage={setCryptoPage} totalItems={TOP_50_CRYPTO.length} />
             </div>
           )}
 
@@ -914,8 +940,9 @@ export default function App() {
                 <button className="btn" style={{ background: 'var(--btn-bg)', color: 'var(--text-primary)', fontSize: '0.75rem', padding: '4px 10px' }} onClick={fetchStocks}>새로고침</button>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {stockData.map(s => <AssetRow key={s.symbol} data={s} liveData={liveData} setChartAsset={setChartAsset} setTradingAsset={setTradingAsset} setTradeType={setTradeType} setQty={setQty} setTradeErr={setTradeErr} />)}
+                {stockData.slice((stockPage - 1) * ITEMS_PER_PAGE, stockPage * ITEMS_PER_PAGE).map(s => <AssetRow key={s.symbol} data={s} liveData={liveData} setChartAsset={setChartAsset} setTradingAsset={setTradingAsset} setTradeType={setTradeType} setQty={setQty} setTradeErr={setTradeErr} />)}
               </div>
+              <Pagination page={stockPage} setPage={setStockPage} totalItems={stockData.length} />
             </div>
           )}
           {activeTab === 'ETF' && (
@@ -925,8 +952,9 @@ export default function App() {
                 <button className="btn" style={{ background: 'var(--btn-bg)', color: 'var(--text-primary)', fontSize: '0.75rem', padding: '4px 10px' }} onClick={fetchEtfs}>새로고침</button>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {etfData.map(s => <AssetRow key={s.symbol} data={s} liveData={liveData} setChartAsset={setChartAsset} setTradingAsset={setTradingAsset} setTradeType={setTradeType} setQty={setQty} setTradeErr={setTradeErr} />)}
+                {etfData.slice((etfPage - 1) * ITEMS_PER_PAGE, etfPage * ITEMS_PER_PAGE).map(s => <AssetRow key={s.symbol} data={s} liveData={liveData} setChartAsset={setChartAsset} setTradingAsset={setTradingAsset} setTradeType={setTradeType} setQty={setQty} setTradeErr={setTradeErr} />)}
               </div>
+              <Pagination page={etfPage} setPage={setEtfPage} totalItems={etfData.length} />
             </div>
           )}
 

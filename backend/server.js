@@ -336,22 +336,46 @@ app.get('/api/stocks/top', async (req, res) => {
   const FINNHUB_TOKEN = process.env.FINNHUB_TOKEN || '';
 
   // US stocks via Finnhub (works from any server, no IP block)
-  const usSymbols = [
-    { symbol: 'AAPL', name: 'Apple' },
-    { symbol: 'NVDA', name: 'NVIDIA' },
-    { symbol: 'TSLA', name: 'Tesla' },
-    { symbol: 'MSFT', name: 'Microsoft' },
-    { symbol: 'AMZN', name: 'Amazon' },
+    const usSymbols = [
+    { symbol: 'AAPL', name: 'Apple' }, { symbol: 'NVDA', name: 'NVIDIA' }, { symbol: 'MSFT', name: 'Microsoft' },
+    { symbol: 'GOOGL', name: 'Alphabet' }, { symbol: 'AMZN', name: 'Amazon' }, { symbol: 'META', name: 'Meta' },
+    { symbol: 'TSLA', name: 'Tesla' }, { symbol: 'BRK.B', name: 'Berkshire Hathaway' }, { symbol: 'AVGO', name: 'Broadcom' },
+    { symbol: 'LLY', name: 'Eli Lilly' }, { symbol: 'TSM', name: 'TSMC' }, { symbol: 'JPM', name: 'JPMorgan Chase' },
+    { symbol: 'V', name: 'Visa' }, { symbol: 'WMT', name: 'Walmart' }, { symbol: 'UNH', name: 'UnitedHealth' },
+    { symbol: 'MA', name: 'Mastercard' }, { symbol: 'JNJ', name: 'Johnson & Johnson' }, { symbol: 'PG', name: 'Procter & Gamble' },
+    { symbol: 'HD', name: 'Home Depot' }, { symbol: 'COST', name: 'Costco' }, { symbol: 'ABBV', name: 'AbbVie' },
+    { symbol: 'MRK', name: 'Merck' }, { symbol: 'CRM', name: 'Salesforce' }, { symbol: 'NFLX', name: 'Netflix' },
+    { symbol: 'AMD', name: 'AMD' }
   ];
 
   // Korean stocks — static fallback list with reference prices
   // Yahoo Finance blocks cloud IPs so we serve a placeholder with a note
-  const krStocksStatic = [
+    const krStocksStatic = [
     { symbol: '005930.KS', name: '삼성전자', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
     { symbol: '000660.KS', name: 'SK하이닉스', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
-    { symbol: '035420.KS', name: 'NAVER', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
-    { symbol: '035720.KS', name: '카카오', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '373220.KS', name: 'LG에너지솔루션', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '207940.KS', name: '삼성바이오로직스', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '005380.KS', name: '현대차', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '000270.KS', name: '기아', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
     { symbol: '068270.KS', name: '셀트리온', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '005490.KS', name: 'POSCO홀딩스', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '035420.KS', name: 'NAVER', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '105560.KS', name: 'KB금융', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '028260.KS', name: '삼성물산', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '055550.KS', name: '신한지주', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '032830.KS', name: '삼성생명', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '035720.KS', name: '카카오', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '051910.KS', name: 'LG화학', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '012330.KS', name: '현대모비스', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '066570.KS', name: 'LG전자', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '003550.KS', name: 'LG', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '034730.KS', name: 'SK', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '086790.KS', name: '하나금융지주', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '015760.KS', name: '한국전력', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '033780.KS', name: 'KT&G', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '329180.KS', name: 'HD현대중공업', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '010140.KS', name: '삼성중공업', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '138040.KS', name: '메리츠금융지주', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' }
   ];
 
   try {
@@ -442,25 +466,43 @@ app.get('/api/etfs/top', async (req, res) => {
 
   const FINNHUB_TOKEN = process.env.FINNHUB_TOKEN || '';
 
-  const usEtfSymbols = [
-    { symbol: 'SPY', name: 'SPDR S&P 500 ETF Trust' },
-    { symbol: 'QQQ', name: 'Invesco QQQ Trust' },
-    { symbol: 'SCHD', name: 'Schwab US Dividend Equity ETF' },
-    { symbol: 'TQQQ', name: 'ProShares UltraPro QQQ' },
-    { symbol: 'SOXL', name: 'Direxion Daily Semiconductor Bull 3x' }
+    const usEtfSymbols = [
+    { symbol: 'SPY', name: 'SPDR S&P 500 ETF Trust' }, { symbol: 'QQQ', name: 'Invesco QQQ Trust' },
+    { symbol: 'VOO', name: 'Vanguard S&P 500 ETF' }, { symbol: 'IVV', name: 'iShares Core S&P 500 ETF' },
+    { symbol: 'VTI', name: 'Vanguard Total Stock Market ETF' }, { symbol: 'SCHD', name: 'Schwab US Dividend Equity ETF' },
+    { symbol: 'TQQQ', name: 'ProShares UltraPro QQQ' }, { symbol: 'SOXX', name: 'iShares Semiconductor ETF' },
+    { symbol: 'SOXL', name: 'Direxion Daily Semiconductor Bull 3x' }, { symbol: 'ARKK', name: 'ARK Innovation ETF' },
+    { symbol: 'JEPI', name: 'JPMorgan Equity Premium Income ETF' }, { symbol: 'VIG', name: 'Vanguard Dividend Appreciation ETF' },
+    { symbol: 'VYM', name: 'Vanguard High Dividend Yield ETF' }, { symbol: 'DIA', name: 'SPDR Dow Jones Industrial Average ETF Trust' },
+    { symbol: 'IWM', name: 'iShares Russell 2000 ETF' }, { symbol: 'TLT', name: 'iShares 20+ Year Treasury Bond ETF' },
+    { symbol: 'GLD', name: 'SPDR Gold Shares' }, { symbol: 'VNQ', name: 'Vanguard Real Estate Index Fund' },
+    { symbol: 'VEA', name: 'Vanguard FTSE Developed Markets ETF' }, { symbol: 'VWO', name: 'Vanguard FTSE Emerging Markets ETF' },
+    { symbol: 'IEMG', name: 'iShares Core MSCI Emerging Markets ETF' }, { symbol: 'IEFA', name: 'iShares Core MSCI EAFE ETF' },
+    { symbol: 'AGG', name: 'iShares Core US Aggregate Bond ETF' }, { symbol: 'BND', name: 'Vanguard Total Bond Market ETF' },
+    { symbol: 'LQD', name: 'iShares iBoxx $ Investment Grade Corporate Bond ETF' },
+    { symbol: 'XLK', name: 'Technology Select Sector SPDR Fund' }, { symbol: 'XLF', name: 'Financial Select Sector SPDR Fund' },
+    { symbol: 'XLV', name: 'Health Care Select Sector SPDR Fund' }, { symbol: 'XLE', name: 'Energy Select Sector SPDR Fund' },
+    { symbol: 'XLY', name: 'Consumer Discretionary Select Sector SPDR Fund' }, { symbol: 'XLI', name: 'Industrial Select Sector SPDR Fund' },
+    { symbol: 'XLC', name: 'Communication Services Select Sector SPDR Fund' }, { symbol: 'XLP', name: 'Consumer Staples Select Sector SPDR Fund' },
+    { symbol: 'XLU', name: 'Utilities Select Sector SPDR Fund' }, { symbol: 'XLB', name: 'Materials Select Sector SPDR Fund' },
+    { symbol: 'XLRE', name: 'Real Estate Select Sector SPDR Fund' }, { symbol: 'VUG', name: 'Vanguard Growth Index Fund' },
+    { symbol: 'VTV', name: 'Vanguard Value Index Fund' }, { symbol: 'IWF', name: 'iShares Russell 1000 Growth ETF' },
+    { symbol: 'IWD', name: 'iShares Russell 1000 Value ETF' }, { symbol: 'QUAL', name: 'iShares MSCI USA Quality Factor ETF' },
+    { symbol: 'MTUM', name: 'iShares MSCI USA Momentum Factor ETF' }, { symbol: 'USMV', name: 'iShares MSCI USA Min Vol Factor ETF' },
+    { symbol: 'RSP', name: 'Invesco S&P 500 Equal Weight ETF' }, { symbol: 'SDY', name: 'SPDR S&P Dividend ETF' },
+    { symbol: 'DGRO', name: 'iShares Core Dividend Growth ETF' }, { symbol: 'NOBL', name: 'ProShares S&P 500 Dividend Aristocrats ETF' },
+    { symbol: 'SPYG', name: 'SPDR Portfolio S&P 500 Growth ETF' }, { symbol: 'SPYV', name: 'SPDR Portfolio S&P 500 Value ETF' },
+    { symbol: 'XBI', name: 'SPDR S&P Biotech ETF' }
   ];
 
-  const krEtfSymbols = [
-    { symbol: '133690.KS', name: 'TIGER 미국나스닥100', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    const krEtfSymbols = [
     { symbol: '069500.KS', name: 'KODEX 200', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '379800.KS', name: 'KODEX 미국나스닥100TR', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '379810.KS', name: 'KODEX 미국S&P500TR', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '133690.KS', name: 'TIGER 미국나스닥100', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
     { symbol: '360750.KS', name: 'TIGER 미국S&P500', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
-    { symbol: '122630.KS', name: 'KODEX 레버리지', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
-    { symbol: '114800.KS', name: 'KODEX 인버스', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
-    { symbol: '261220.KS', name: 'KODEX 반도체 레버리지(하이닉스)', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
-    { symbol: '251340.KS', name: 'KODEX 코스닥150레버리지', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
-    { symbol: '411060.KS', name: 'ACE 미국나스닥100레버리지', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
-    { symbol: '445680.KS', name: 'KODEX 미국AI테크TOP10+10%', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
-    { symbol: '278530.KS', name: 'KODEX 미국반도체MV', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' }
+    { symbol: '461580.KS', name: 'TIGER 미국배당+7%프리미엄다우존스', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' },
+    { symbol: '458730.KS', name: 'TIGER 미국배당다우존스', price: null, changePercent: 0, type: 'STOCK', currency: 'KRW' }
   ];
 
   try {
@@ -715,6 +757,7 @@ app.get('/api/ranking', (req, res) => {
           if (krxNameMap[sym]) name = krxNameMap[sym];
           else if (KR_NAMES && KR_NAMES[sym]) name = KR_NAMES[sym];
           else if (r.asset_type === 'CRYPTO') name = sym.replace('USDT', '');
+          else if (r.asset_name) name = r.asset_name;
           
           const holding = {
             symbol: sym,
