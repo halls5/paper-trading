@@ -376,7 +376,7 @@ export default function App() {
 
   // 포트폴리오 탭 진입 시 자동 스냅샷 (1시간 주기)
   useEffect(() => {
-    if (activeTab === 'MY' && user && totalAssetKRW > 0) {
+    if ((activeTab === 'PORTFOLIO' || activeTab === 'MY') && user && totalAssetKRW > 0) {
       saveBalanceSnapshot(token(), totalAssetKRW);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -806,7 +806,74 @@ export default function App() {
       </header>
 
       <div className="app-body">
+        <div className="sidebar desktop-sidebar">
+          <div className="glass-panel balance-card sidebar-balance">
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginBottom: '0.3rem' }}><Wallet size={15} style={{ marginRight: 4, verticalAlign: "text-bottom" }} /> 총 잔고</p>
+            <h1 className="text-gradient" style={{ fontSize: '1.8rem', margin: 0, letterSpacing: '-0.03em' }}>{fmtBalance(totalAssetKRW)}</h1>
+            <div style={{ marginTop: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>현금 잔고</span>
+                <span>{fmtBalance(user.balance)}</span>
+              </div>
+              {totalHoldingKRW > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>보유 자산</span>
+                  <span>≈ {fmtBalance(totalHoldingKRW)}</span>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.4rem', marginTop: '0.1rem' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>총 손익</span>
+                <span style={{ color: totalPnl >= 0 ? 'var(--success-color)' : 'var(--danger-color)', fontWeight: 600 }}>
+                  {totalPnl >= 0 ? '+' : ''}{fmtBalance(totalPnl)}
+                  <span style={{ fontSize: '0.72rem', marginLeft: '0.3rem' }}>({totalPnl >= 0 ? '+' : ''}{totalPnlPct}%)</span>
+                </span>
+              </div>
+            </div>
+          </div>
 
+          <div className="glass-panel sidebar-portfolio">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ margin: 0 }}><PieChartIcon size={18} style={{ marginRight: 6, verticalAlign: "text-bottom" }} /> 내 포트폴리오</h3>
+              <button className="btn" style={{ background: 'var(--btn-bg)', color: 'var(--text-primary)', fontSize: '0.8rem', padding: '5px 12px' }} onClick={() => fetchPortfolio(token())}>새로고침</button>
+            </div>
+            {portfolioWithValues.length === 0 ? (
+              <p style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '2rem 0' }}>보유 자산이 없습니다.</p>
+            ) : (
+              <>
+                <PieChart data={pieData} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '1rem' }}>
+                  {portfolioWithValues.sort((a, b) => b.valueKRW - a.valueKRW).map(p => (
+                    <div key={p.asset_symbol}
+                      onClick={() => {
+                        setTradingAsset({
+                          symbol: p.asset_symbol,
+                          name: p.asset_name || p.asset_symbol,
+                          type: p.asset_type,
+                          currency: p.currency,
+                          price: p.currentPrice,
+                        });
+                        setTradeType('BUY');
+                        setQty('');
+                        setTradeErr('');
+                      }}
+                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0.8rem', background: 'var(--row-bg)', borderRadius: '8px', cursor: 'pointer' }}>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{p.asset_name || p.asset_symbol}</div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{p.quantity.toLocaleString(undefined, { maximumFractionDigits: 6 })}개 · 평균 {fmtPrice(p.average_price, p.currency)}</div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{fmtPrice(p.currentPrice, p.currency)}</div>
+                        <div style={{ color: p.pnlPct >= 0 ? 'var(--success-color)' : 'var(--danger-color)', fontSize: '0.75rem', fontWeight: 600 }}>
+                          {p.pnlPct >= 0 ? '+' : ''}{p.pnlPct.toFixed(2)}%
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
 
         <div className="glass-panel main-panel">
           <div className="tab-bar">
@@ -815,7 +882,7 @@ export default function App() {
               ['ETF', <><TrendingUp size={16} style={{ marginRight: 4, verticalAlign: "text-bottom" }} /> ETF Top 10</>],
               ['SEARCH', <><Search size={16} style={{ marginRight: 4, verticalAlign: "text-bottom" }} /> 검색 결과</>],
               ['HISTORY', <><ScrollText size={16} style={{ marginRight: 4, verticalAlign: "text-bottom" }} /> 거래 내역</>],
-              ['MY', <><User size={16} style={{ marginRight: 4, verticalAlign: "text-bottom" }} /> 마이페이지</>]]
+              ['PORTFOLIO', <><PieChartIcon size={16} style={{ marginRight: 4, verticalAlign: "text-bottom" }} /> 포트폴리오 차트</>]]
               .map(([key, label]) => (
               <button key={key} onClick={() => { setActiveTab(key); if (key === 'RANKING') fetchRanking(); if (key === 'HISTORY') fetchHistory(token()); }}
                 className={`btn ${activeTab === key ? 'btn-primary' : ''}`}
@@ -875,6 +942,30 @@ export default function App() {
 
           {activeTab === 'RANKING' && <RankingView />}
           {activeTab === 'HISTORY' && <HistoryView />}
+          {activeTab === 'PORTFOLIO' && (
+            <div>
+              <div style={{ marginBottom: '1rem' }}>
+                <h3 style={{ margin: 0 }}><TrendingUp size={18} style={{ marginRight: 6, verticalAlign: "text-bottom" }} /> 나의 자산 추이</h3>
+              </div>
+              <div style={{ background: 'var(--row-bg)', padding: '1rem', borderRadius: '12px' }}>
+                {portfolioHistory.length < 1 ? (
+                  <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '3rem 1rem' }}>
+                    <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📈</div>
+                    <div>아직 기록이 없습니다.</div>
+                    <div style={{ fontSize: '0.8rem', marginTop: '0.4rem' }}>앱을 켜두시면 1시간 주기로 자동 기록됩니다.</div>
+                  </div>
+                ) : portfolioHistory.length < 2 ? (
+                  <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '2rem' }}>
+                    <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⏳</div>
+                    <div>기록 1개. 선 그래프는 기록이 2개 이상이어야 그려집니다.</div>
+                    <div style={{ fontSize: '0.8rem', marginTop: '0.4rem' }}>1시간 후 다시 탭을 열어보세요.</div>
+                  </div>
+                ) : (
+                  <PortfolioHistoryChart data={portfolioHistory} />
+                )}
+              </div>
+            </div>
+          )}
           {activeTab === 'MY' && <MyPageView />}
         </div>
       </div>
