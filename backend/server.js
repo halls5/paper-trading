@@ -886,6 +886,33 @@ app.get('/api/ranking', (req, res) => {
 const krxNameMap = {};
 krxStocks.forEach(s => { krxNameMap[s.symbol] = s.name; });
 
+// One-shot migration: sync portfolios.asset_name to the canonical krx.json name.
+// Fixes legacy rows where asset_name was stored from a mis-labeled static list
+// (e.g. 261220.KS saved as "KODEX 반도체 레버리지(하이닉스)" but is actually
+// "KODEX WTI원유선물(H)"). Idempotent: only updates rows that differ.
+setTimeout(function syncPortfolioNames() {
+  db.all('SELECT DISTINCT asset_symbol FROM portfolios', [], (err, rows) => {
+    if (err) return console.error('Portfolio name sync: failed to read symbols', err.message);
+    const symbols = rows.map(r => r.asset_symbol).filter(s => krxNameMap[s]);
+    if (symbols.length === 0) return;
+    let updated = 0;
+    let pending = symbols.length;
+    symbols.forEach(sym => {
+      const canonical = krxNameMap[sym];
+      db.run(
+        'UPDATE portfolios SET asset_name = ? WHERE asset_symbol = ? AND (asset_name IS NULL OR asset_name <> ?)',
+        [canonical, sym, canonical],
+        function (uerr) {
+          if (!uerr && this && this.changes) updated += this.changes;
+          if (--pending === 0 && updated > 0) {
+            console.log(`✅ Portfolio name sync: updated ${updated} row(s) to krx.json names.`);
+          }
+        }
+      );
+    });
+  });
+}, 2000);
+
 app.get('/api/portfolio', authenticateToken, async (req, res) => {
   db.all('SELECT * FROM portfolios WHERE user_id = ? AND quantity > 0', [req.user.userId], async (err, rows) => {
     if (err) return res.status(500).json({ error: '데이터베이스 오류' });
