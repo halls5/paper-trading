@@ -124,7 +124,9 @@ app.get('/api/users/me', authenticateToken, (req, res) => {
 
 // Korean → English search term translation (Yahoo Finance doesn't support Korean)
 const KR_TRANSLATE = {
-  '삼성': '005930.KS', '삼성전자': '005930.KS', '하이닉스': '000660.KS', 'sk하이닉스': '000660.KS',
+  // Only translate EXACT match to a single stock — do NOT add partial words like '하이닉스'
+  // because that prevents ETF search (e.g. KODEX SK하이닉스 레버리지)
+  '삼성전자': '005930.KS',
   '네이버': '035420.KS', '카카오': '035720.KS', '셀트리온': '068270.KS',
   '애플': 'apple', '엔비디아': 'nvidia', '테슬라': 'tesla', '마이크로소프트': 'microsoft',
   '아마존': 'amazon', '구글': 'google', '알파벳': 'alphabet', '메타': 'meta',
@@ -141,12 +143,106 @@ const KR_NAMES = {
   '068270.KS': '셀트리온'
 };
 
+// Static US stock/ETF list for search fallback (when Yahoo/Finnhub unavailable on cloud)
+const US_STATIC = [
+  // ETFs
+  { symbol: 'SPY', name: 'SPDR S&P 500 ETF Trust' },
+  { symbol: 'QQQ', name: 'Invesco QQQ Trust (NASDAQ-100)' },
+  { symbol: 'TQQQ', name: 'ProShares UltraPro QQQ (3x Leveraged NASDAQ-100)' },
+  { symbol: 'SQQQ', name: 'ProShares UltraPro Short QQQ (-3x NASDAQ-100)' },
+  { symbol: 'QLD', name: 'ProShares Ultra QQQ (2x NASDAQ-100)' },
+  { symbol: 'QID', name: 'ProShares UltraShort QQQ (-2x NASDAQ-100)' },
+  { symbol: 'QQEW', name: 'First Trust NASDAQ-100 Equal Weighted Index Fund' },
+  { symbol: 'QQQM', name: 'Invesco NASDAQ-100 ETF' },
+  { symbol: 'QQQA', name: 'ProShares NASDAQ-100 Dorsey Wright Momentum ETF' },
+  { symbol: 'VOO', name: 'Vanguard S&P 500 ETF' },
+  { symbol: 'IVV', name: 'iShares Core S&P 500 ETF' },
+  { symbol: 'VTI', name: 'Vanguard Total Stock Market ETF' },
+  { symbol: 'SCHD', name: 'Schwab US Dividend Equity ETF' },
+  { symbol: 'SOXX', name: 'iShares Semiconductor ETF' },
+  { symbol: 'SOXL', name: 'Direxion Daily Semiconductor Bull 3x Shares' },
+  { symbol: 'SOXS', name: 'Direxion Daily Semiconductor Bear 3x Shares' },
+  { symbol: 'ARKK', name: 'ARK Innovation ETF' },
+  { symbol: 'JEPI', name: 'JPMorgan Equity Premium Income ETF' },
+  { symbol: 'DIA', name: 'SPDR Dow Jones Industrial Average ETF Trust' },
+  { symbol: 'IWM', name: 'iShares Russell 2000 ETF' },
+  { symbol: 'TLT', name: 'iShares 20+ Year Treasury Bond ETF' },
+  { symbol: 'GLD', name: 'SPDR Gold Shares' },
+  { symbol: 'SLV', name: 'iShares Silver Trust' },
+  { symbol: 'USO', name: 'United States Oil Fund' },
+  { symbol: 'XLK', name: 'Technology Select Sector SPDR Fund' },
+  { symbol: 'XLF', name: 'Financial Select Sector SPDR Fund' },
+  { symbol: 'XLV', name: 'Health Care Select Sector SPDR Fund' },
+  { symbol: 'XLE', name: 'Energy Select Sector SPDR Fund' },
+  { symbol: 'VIG', name: 'Vanguard Dividend Appreciation ETF' },
+  { symbol: 'VYM', name: 'Vanguard High Dividend Yield ETF' },
+  { symbol: 'RSP', name: 'Invesco S&P 500 Equal Weight ETF' },
+  { symbol: 'SPXL', name: 'Direxion Daily S&P 500 Bull 3x Shares' },
+  { symbol: 'SPXS', name: 'Direxion Daily S&P 500 Bear 3x Shares' },
+  { symbol: 'UPRO', name: 'ProShares UltraPro S&P 500 (3x S&P 500)' },
+  { symbol: 'SPXU', name: 'ProShares UltraPro Short S&P 500 (-3x S&P 500)' },
+  { symbol: 'SSO', name: 'ProShares Ultra S&P 500 (2x S&P 500)' },
+  { symbol: 'SDS', name: 'ProShares UltraShort S&P 500 (-2x S&P 500)' },
+  { symbol: 'LABU', name: 'Direxion Daily S&P Biotech Bull 3x Shares' },
+  { symbol: 'LABD', name: 'Direxion Daily S&P Biotech Bear 3x Shares' },
+  { symbol: 'TECL', name: 'Direxion Daily Technology Bull 3x Shares' },
+  { symbol: 'TECS', name: 'Direxion Daily Technology Bear 3x Shares' },
+  { symbol: 'FNGU', name: 'MicroSectors FANG+ Index 3x Leveraged ETN' },
+  { symbol: 'FNGD', name: 'MicroSectors FANG+ Index -3x Inverse Leveraged ETN' },
+  { symbol: 'NVDL', name: 'GraniteShares 2x Long NVDA Daily ETF' },
+  { symbol: 'NVDD', name: 'GraniteShares 1x Short NVDA Daily ETF' },
+  { symbol: 'TSLL', name: 'Direxion Daily TSLA Bull 2x Shares' },
+  { symbol: 'TSLS', name: 'Direxion Daily TSLA Bear 1x Shares' },
+  { symbol: 'MSTU', name: 'T-Rex 2X Long MSTR Daily Target ETF' },
+  { symbol: 'IBIT', name: 'iShares Bitcoin Trust ETF' },
+  { symbol: 'FBTC', name: 'Fidelity Wise Origin Bitcoin Fund' },
+  { symbol: 'BITB', name: 'Bitwise Bitcoin ETF' },
+  // US Stocks
+  { symbol: 'AAPL', name: 'Apple Inc.' },
+  { symbol: 'NVDA', name: 'NVIDIA Corporation' },
+  { symbol: 'MSFT', name: 'Microsoft Corporation' },
+  { symbol: 'GOOGL', name: 'Alphabet Inc. (Google)' },
+  { symbol: 'AMZN', name: 'Amazon.com Inc.' },
+  { symbol: 'META', name: 'Meta Platforms Inc. (Facebook)' },
+  { symbol: 'TSLA', name: 'Tesla Inc.' },
+  { symbol: 'AVGO', name: 'Broadcom Inc.' },
+  { symbol: 'JPM', name: 'JPMorgan Chase & Co.' },
+  { symbol: 'V', name: 'Visa Inc.' },
+  { symbol: 'WMT', name: 'Walmart Inc.' },
+  { symbol: 'UNH', name: 'UnitedHealth Group Inc.' },
+  { symbol: 'MA', name: 'Mastercard Inc.' },
+  { symbol: 'NFLX', name: 'Netflix Inc.' },
+  { symbol: 'AMD', name: 'Advanced Micro Devices Inc.' },
+  { symbol: 'CRM', name: 'Salesforce Inc.' },
+  { symbol: 'ORCL', name: 'Oracle Corporation' },
+  { symbol: 'PLTR', name: 'Palantir Technologies Inc.' },
+];
+
+// Helper: fetch Naver prices for an array of KRX codes (batches of 10)
+async function fetchNaverPrices(codes) {
+  const priceMap = {};
+  const batchSize = 10;
+  for (let i = 0; i < codes.length; i += batchSize) {
+    const batch = codes.slice(i, i + batchSize);
+    try {
+      const url = `https://polling.finance.naver.com/api/realtime?query=SERVICE_ITEM:${batch.join(',')}`;
+      const res = await fetch(url);
+      const json = await res.json();
+      const datas = json.result?.areas?.[0]?.datas || [];
+      datas.forEach(d => { priceMap[d.cd] = d; });
+    } catch (e) {
+      console.error('Naver batch fetch error:', e.message);
+    }
+  }
+  return priceMap;
+}
+
 // Search — with 5-min cache
 app.get('/api/search', async (req, res) => {
   let { q } = req.query;
   if (!q) return res.status(400).json({ error: '검색어를 입력해주세요.' });
 
-  // Translate Korean to English/symbol
+  // Translate Korean to English/symbol (only exact full-word translations)
   const normalized = q.toLowerCase().trim();
   if (KR_TRANSLATE[normalized]) q = KR_TRANSLATE[normalized];
 
@@ -154,29 +250,26 @@ app.get('/api/search', async (req, res) => {
   const cached = getCache(cacheKey);
   if (cached) return res.json(cached);
 
-  // If translated to a crypto USDT symbol, return a static entry (price from Binance on frontend)
+  // If translated to a crypto USDT symbol, return a static entry
   if (q.endsWith('USDT')) {
     const result = [{ symbol: q, name: q.replace('USDT', ''), price: null, changePercent: 0, type: 'CRYPTO', currency: 'USD' }];
     setCache(cacheKey, result, 5 * 60 * 1000);
     return res.json(result);
   }
 
-  // If translated to a KS stock symbol (e.g. 005930.KS), use Naver Finance Polling API (bypass Yahoo IP block)
+  // If an exact KRX symbol (e.g. 005930.KS), fetch directly
   if (q.endsWith('.KS') || q.endsWith('.KQ')) {
     try {
       const code = q.split('.')[0];
-      const naverUrl = `https://polling.finance.naver.com/api/realtime?query=SERVICE_ITEM:${code}`;
-      const naverRes = await fetch(naverUrl);
-      const naverJson = await naverRes.json();
-      const naverData = naverJson.result.areas[0].datas[0];
-      if (naverData) {
+      const priceMap = await fetchNaverPrices([code]);
+      const data = priceMap[code];
+      if (data) {
         const result = [{
           symbol: q,
-          name: KR_NAMES[q] || q,
-          price: naverData.nv,
-          changePercent: naverData.cr * (naverData.cv === 0 ? 0 : (naverData.nv >= naverData.pcv ? 1 : -1)),
-          type: 'STOCK',
-          currency: 'KRW'
+          name: KR_NAMES[q] || krxStocks.find(s => s.symbol === q)?.name || q,
+          price: data.nv,
+          changePercent: data.cr * (data.cv === 0 ? 0 : (data.nv >= data.pcv ? 1 : -1)),
+          type: 'STOCK', currency: 'KRW'
         }];
         setCache(cacheKey, result, 5 * 60 * 1000);
         return res.json(result);
@@ -186,160 +279,126 @@ app.get('/api/search', async (req, res) => {
     }
   }
 
-  let finalResults = [];
+  const finalResults = [];
   const addedSymbols = new Set();
 
-  // ── 1. Search KRX stocks+ETFs (case-insensitive partial match) ──────────────
+  // ── 1. Search KRX stocks + ETFs (partial match, batch Naver requests) ───────
   if (krxStocks.length > 0) {
     try {
       const qLower = q.toLowerCase();
-      // Find up to 20 matching KRX stocks/ETFs
-      const matches = krxStocks.filter(s =>
-        s.name.toLowerCase().includes(qLower) || s.symbol.toLowerCase().includes(qLower)
-      ).slice(0, 20);
+      const matches = krxStocks
+        .filter(s => s.name.toLowerCase().includes(qLower) || s.symbol.toLowerCase().includes(qLower))
+        .slice(0, 20);
 
       if (matches.length > 0) {
-        // Fetch prices in batches of 20 to avoid Naver API limits
-        const codes = matches.map(s => s.symbol.split('.')[0]).join(',');
-        const naverUrl = `https://polling.finance.naver.com/api/realtime?query=SERVICE_ITEM:${codes}`;
-        const naverRes = await fetch(naverUrl);
-        const naverJson = await naverRes.json();
-        const naverDatas = naverJson.result.areas[0].datas;
+        const codes = matches.map(s => s.symbol.split('.')[0]);
+        const priceMap = await fetchNaverPrices(codes);
 
         matches.forEach(s => {
           const code = s.symbol.split('.')[0];
-          const data = naverDatas.find(d => d.cd === code);
+          const data = priceMap[code];
           if (data) {
             finalResults.push({
-              symbol: s.symbol,
-              name: s.name,
+              symbol: s.symbol, name: s.name,
               price: data.nv,
               changePercent: data.cr * (data.cv === 0 ? 0 : (data.nv >= data.pcv ? 1 : -1)),
-              type: 'STOCK',
-              currency: 'KRW'
+              type: 'STOCK', currency: 'KRW'
             });
             addedSymbols.add(s.symbol);
           }
         });
       }
     } catch (err) {
-      console.error('KRX JSON search error:', err.message);
+      console.error('KRX search error:', err.message);
     }
   }
 
-  // ── 2. Search overseas (Finnhub + Yahoo) ────────────────────────────────────
-  try {
-    let overseasResults = [];
+  // ── 2. Search US_STATIC (always works, no external API needed) ──────────────
+  {
+    const qUpper = q.toUpperCase();
+    const qLower = q.toLowerCase();
+    const staticMatches = US_STATIC.filter(s =>
+      s.symbol.toUpperCase().includes(qUpper) || s.name.toLowerCase().includes(qLower)
+    ).slice(0, 15);
 
-    if (process.env.FINNHUB_TOKEN) {
-      try {
-        const fUrl = `https://finnhub.io/api/v1/search?q=${encodeURIComponent(q)}&token=${process.env.FINNHUB_TOKEN}`;
-        const searchRes = await fetch(fUrl).then(r => r.json());
-        const symbols = (searchRes.result || [])
-          .filter(r => r.type === 'Common Stock' || r.type === '' || r.type === 'ETP' || r.type === 'ETF')
-          .slice(0, 15)
-          .map(r => r.symbol);
+    // Try to get prices for static matches (Finnhub preferred, price:null fallback)
+    for (const s of staticMatches) {
+      if (addedSymbols.has(s.symbol)) continue;
+      let price = null, changePercent = 0;
+      if (process.env.FINNHUB_TOKEN) {
+        try {
+          const resp = await fetch(`https://finnhub.io/api/v1/quote?symbol=${s.symbol}&token=${process.env.FINNHUB_TOKEN}`);
+          const q = await resp.json();
+          if (q && q.c) { price = q.c; changePercent = q.pc > 0 ? ((q.c - q.pc) / q.pc * 100) : 0; }
+        } catch (_) {}
+      }
+      finalResults.push({ symbol: s.symbol, name: s.name, price, changePercent, type: 'STOCK', currency: 'USD' });
+      addedSymbols.add(s.symbol);
+    }
+  }
 
-        const fetchQuote = async (sym) => {
+  // ── 3. Finnhub search (for symbols not in US_STATIC) ────────────────────────
+  if (process.env.FINNHUB_TOKEN && finalResults.filter(r => r.currency === 'USD').length < 3) {
+    try {
+      const fUrl = `https://finnhub.io/api/v1/search?q=${encodeURIComponent(q)}&token=${process.env.FINNHUB_TOKEN}`;
+      const searchRes = await fetch(fUrl).then(r => r.json());
+      const symbols = (searchRes.result || [])
+        .filter(r => r.type === 'Common Stock' || r.type === '' || r.type === 'ETP' || r.type === 'ETF')
+        .slice(0, 10).map(r => r.symbol);
+
+      const quotes = await Promise.all(symbols.map(async (sym) => {
+        if (addedSymbols.has(sym)) return null;
+        try {
           const resp = await fetch(`https://finnhub.io/api/v1/quote?symbol=${sym}&token=${process.env.FINNHUB_TOKEN}`);
-          return await resp.json();
-        };
-
-        const quotes = await Promise.all(symbols.map(async (s) => {
-          try {
-            const quote = await fetchQuote(s);
-            if (!quote || !quote.c) return null;
-            return {
-              symbol: s,
-              name: searchRes.result.find(r => r.symbol === s)?.description || s,
-              price: quote.c,
-              changePercent: quote.pc > 0 ? ((quote.c - quote.pc) / quote.pc * 100) : 0,
-              type: 'STOCK',
-              currency: 'USD'
-            };
-          } catch { return null; }
-        }));
-        overseasResults = quotes.filter(Boolean);
-      } catch (err) {
-        console.error('Finnhub search failed:', err.message);
-      }
+          const qt = await resp.json();
+          if (!qt || !qt.c) return null;
+          return {
+            symbol: sym,
+            name: searchRes.result.find(r => r.symbol === sym)?.description || sym,
+            price: qt.c,
+            changePercent: qt.pc > 0 ? ((qt.c - qt.pc) / qt.pc * 100) : 0,
+            type: 'STOCK', currency: 'USD'
+          };
+        } catch { return null; }
+      }));
+      quotes.filter(Boolean).forEach(r => {
+        if (!addedSymbols.has(r.symbol)) { finalResults.push(r); addedSymbols.add(r.symbol); }
+      });
+    } catch (err) {
+      console.error('Finnhub search failed:', err.message);
     }
-
-    if (overseasResults.length < 5) {
-      // Fallback to Yahoo if Finnhub failed, not configured, or returned too few results
-      try {
-        const results = await enqueue(async () => {
-          const searchResults = await yf.search(q);
-          const validQuotes = (searchResults.quotes || [])
-            .filter(quote => ['EQUITY', 'CRYPTOCURRENCY', 'ETF'].includes(quote.quoteType))
-            .slice(0, 15);
-          if (validQuotes.length === 0) return [];
-
-          const symbols = validQuotes.map(q => q.symbol);
-          let quotesArray = [];
-          try {
-            const quotes = await yf.quote(symbols);
-            quotesArray = Array.isArray(quotes) ? quotes : [quotes];
-          } catch (qErr) {
-            console.error('Yahoo quote blocked, using Finnhub for prices:', qErr.message);
-            if (process.env.FINNHUB_TOKEN) {
-               const fhQuotes = await Promise.all(symbols.map(async (s) => {
-                 try {
-                   const resp = await fetch(`https://finnhub.io/api/v1/quote?symbol=${s}&token=${process.env.FINNHUB_TOKEN}`);
-                   const quote = await resp.json();
-                   if (!quote || !quote.c) return null;
-                   const vq = validQuotes.find(v => v.symbol === s);
-                   return {
-                     symbol: s,
-                     shortName: vq?.shortName || vq?.longName || s,
-                     regularMarketPrice: quote.c,
-                     regularMarketChangePercent: quote.pc > 0 ? ((quote.c - quote.pc) / quote.pc * 100) : 0,
-                     quoteType: vq?.quoteType || 'EQUITY',
-                     currency: 'USD'
-                   };
-                 } catch { return null; }
-               }));
-               quotesArray = fhQuotes.filter(Boolean);
-            }
-          }
-
-          return quotesArray.map(quote => ({
-            symbol: quote.quoteType === 'CRYPTOCURRENCY' ? quote.symbol.replace('-USD', 'USDT').replace('MATICUSDT', 'POLUSDT') : quote.symbol,
-            name: quote.shortName || quote.longName || quote.symbol,
-            price: quote.regularMarketPrice,
-            changePercent: quote.regularMarketChangePercent,
-            type: quote.quoteType === 'CRYPTOCURRENCY' ? 'CRYPTO' : 'STOCK',
-            currency: quote.currency || 'USD'
-          })).filter(r => r.price != null);
-        });
-
-        // Merge overseas results avoiding duplicates
-        results.forEach(r => {
-          if (!overseasResults.find(o => o.symbol === r.symbol)) {
-            overseasResults.push(r);
-          }
-        });
-      } catch (err) {
-        console.error('Yahoo fallback search failed:', err.message);
-      }
-    }
-
-    // Merge overseas results into finalResults (avoiding duplicates with KRX)
-    overseasResults.forEach(r => {
-      if (!addedSymbols.has(r.symbol)) {
-        finalResults.push(r);
-        addedSymbols.add(r.symbol);
-      }
-    });
-
-  } catch (error) {
-    console.error('Search API Error:', error.message);
   }
 
-  setCache(cacheKey, finalResults, 5 * 60 * 1000); // 5 min
+  // ── 4. Yahoo fallback (last resort) ─────────────────────────────────────────
+  if (finalResults.length === 0) {
+    try {
+      const results = await enqueue(async () => {
+        const searchResults = await yf.search(q);
+        const validQuotes = (searchResults.quotes || [])
+          .filter(quote => ['EQUITY', 'CRYPTOCURRENCY', 'ETF'].includes(quote.quoteType))
+          .slice(0, 10);
+        if (validQuotes.length === 0) return [];
+        const symbols = validQuotes.map(v => v.symbol);
+        let quotesArray = [];
+        try { const r = await yf.quote(symbols); quotesArray = Array.isArray(r) ? r : [r]; } catch (_) {}
+        return quotesArray.map(quote => ({
+          symbol: quote.quoteType === 'CRYPTOCURRENCY' ? quote.symbol.replace('-USD', 'USDT').replace('MATICUSDT', 'POLUSDT') : quote.symbol,
+          name: quote.shortName || quote.longName || quote.symbol,
+          price: quote.regularMarketPrice,
+          changePercent: quote.regularMarketChangePercent,
+          type: quote.quoteType === 'CRYPTOCURRENCY' ? 'CRYPTO' : 'STOCK',
+          currency: quote.currency || 'USD'
+        })).filter(r => r.price != null);
+      });
+      results.forEach(r => { if (!addedSymbols.has(r.symbol)) { finalResults.push(r); addedSymbols.add(r.symbol); } });
+    } catch (err) {
+      console.error('Yahoo fallback search failed:', err.message);
+    }
+  }
+
+  setCache(cacheKey, finalResults, 5 * 60 * 1000);
   res.json(finalResults);
 });
-
 
 // Top 10 Stocks — with 3-min cache
 app.get('/api/stocks/top', async (req, res) => {
